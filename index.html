@@ -293,6 +293,36 @@
   .stat .bar div { height: 100%; border-radius: 4px; background: var(--red); transition: width 0.4s ease; }
   .flavor { font-size: 14px; color: #555; font-style: italic; margin-top: 16px; line-height: 1.4; }
 
+  /* moves view */
+  .moves-btn {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--red);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .moves-btn:hover { filter: brightness(1.1); }
+  .moves-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #222; }
+  .move-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .move-chip {
+    background: #f1f3f5;
+    border-radius: 12px;
+    padding: 4px 11px;
+    font-size: 12.5px;
+    text-transform: capitalize;
+    color: #333;
+  }
+  .move-chip.start { background: #e6f4ea; color: #188038; font-weight: 600; }
+  .lvl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .lvl-table td { padding: 6px 8px; border-bottom: 1px solid #eee; text-transform: capitalize; }
+  .lvl-table td:first-child { width: 60px; font-weight: 700; color: var(--red); white-space: nowrap; }
+
   /* ---- real TCG card gallery ---- */
   .detail.wide { max-width: 940px; }
   .tcg-grid {
@@ -654,6 +684,7 @@ async function openDetail(id) {
       </div>
     `).join('')}
     <div class="flavor" id="flavor"></div>
+    <button class="moves-btn" onclick="openMoves(${p.id})">Moves it can learn</button>
   `;
   document.getElementById('modal').classList.add('open');
 
@@ -661,6 +692,65 @@ async function openDetail(id) {
   const txt = entryMap[id] || dexEntry(await getSpecies(id));
   const flavorEl = document.getElementById('flavor');
   if (txt && flavorEl) flavorEl.textContent = txt;
+}
+
+/* ---- moves view: what it starts with, learns by level, and TMs ---- */
+const movesCache = {};
+async function openMoves(id) {
+  const p = allPokemon.find(x => x.id === id);
+  if (!p) return;
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `
+    <button class="back-btn" onclick="openDetail(${id})">&larr; Back to ${p.name}</button>
+    <h2 style="text-transform:capitalize">${p.name} — moves</h2>
+    <div class="tcg-status">Loading moves...</div>
+  `;
+  document.getElementById('modal').classList.add('open');
+
+  try {
+    if (!movesCache[id]) {
+      // slim pokemon in memory only keeps 2 moves; fetch the full list
+      movesCache[id] = await fetch(`${API}/pokemon/${id}`).then(r => r.json()).then(j => j.moves);
+    }
+    const moves = movesCache[id];
+
+    const fmt = n => n.replace(/-/g, ' ');
+    const levelUp = [];
+    const machine = [];
+    moves.forEach(m => {
+      const lvlDetails = m.version_group_details.filter(d => d.move_learn_method.name === 'level-up');
+      if (lvlDetails.length) {
+        // last entry = newest game that teaches it
+        levelUp.push({ name: fmt(m.move.name), level: lvlDetails[lvlDetails.length - 1].level_learned_at });
+      } else if (m.version_group_details.some(d => d.move_learn_method.name === 'machine')) {
+        machine.push(fmt(m.move.name));
+      }
+    });
+    levelUp.sort((a, b) => a.level - b.level);
+    const starts = levelUp.filter(m => m.level <= 1);
+    const byLevel = levelUp.filter(m => m.level > 1);
+    machine.sort();
+
+    body.innerHTML = `
+      <button class="back-btn" onclick="openDetail(${id})">&larr; Back to ${p.name}</button>
+      <h2 style="text-transform:capitalize">${p.name} — moves</h2>
+      <div class="moves-title">Starts with</div>
+      <div class="move-chips">
+        ${starts.length ? starts.map(m => `<span class="move-chip start">${m.name}</span>`).join('') : '<span class="move-chip">none</span>'}
+      </div>
+      <div class="moves-title">Learns by leveling up</div>
+      ${byLevel.length
+        ? `<table class="lvl-table">${byLevel.map(m => `<tr><td>Lv. ${m.level}</td><td>${m.name}</td></tr>`).join('')}</table>`
+        : '<div class="move-chips"><span class="move-chip">none</span></div>'}
+      <div class="moves-title">Can learn from TM / machine (${machine.length})</div>
+      <div class="move-chips">
+        ${machine.map(m => `<span class="move-chip">${m}</span>`).join('') || '<span class="move-chip">none</span>'}
+      </div>
+    `;
+  } catch (e) {
+    const s = body.querySelector('.tcg-status');
+    if (s) s.textContent = 'Could not load moves. Try again.';
+  }
 }
 
 function closeModal() {
