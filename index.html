@@ -372,6 +372,13 @@
     cursor: pointer;
   }
   .moves-btn:hover { filter: brightness(1.1); }
+  .db-btn {
+    background: #30a7d7;
+    text-align: center;
+    text-decoration: none;
+    box-sizing: border-box;
+    margin-top: 8px;
+  }
   .moves-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #222; }
   .move-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .move-chip {
@@ -396,17 +403,23 @@
     margin-top: 16px;
   }
   .tcg-card { text-align: center; }
+  .tcg-imgwrap {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+    will-change: transform;
+  }
+  .tcg-imgwrap .shine { border-radius: 8px; }
+  .tcg-imgwrap:hover .shine { opacity: 1; }
   .tcg-card img {
     width: 100%;
     height: auto;
     border-radius: 8px;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    transition: transform 0.15s;
     image-rendering: auto;
     display: block;
   }
-  .tcg-card img:hover { transform: scale(1.05); }
   .tcg-card .setname {
     font-size: 11.5px;
     color: #555;
@@ -786,7 +799,10 @@ function renderFavs() {
   el.innerHTML = favorites.length ? favorites.map((f, i) => `
     <div class="tcg-card">
       <button class="fav-btn on" onclick="favorites.splice(${i},1); saveFavs(); renderFavs();">♥</button>
-      <img loading="lazy" src="${f.card.images.small}" alt="${f.card.name}" onclick="openFav(${i})">
+      <div class="tcg-imgwrap">
+        <img loading="lazy" src="${f.card.images.small}" alt="${f.card.name}" onclick="openFav(${i})">
+        <div class="shine"></div>
+      </div>
       <div class="setname">
         <b>${f.card.set.name}</b><br>
         ${f.card.number}${f.card.set.printedTotal ? '/' + f.card.set.printedTotal : ''}${f.card.rarity ? ' · ' + f.card.rarity : ''}
@@ -802,9 +818,10 @@ function openFav(i) {
 
 /* holo tilt effect — one delegated listener, works for all cards */
 document.addEventListener('mousemove', e => {
-  const card = e.target.closest('.tcard');
+  const card = e.target.closest('.tcard, .tcg-imgwrap');
   if (!card) return;
   const r = card.getBoundingClientRect();
+  if (!r.width || !r.height) return; // image not loaded yet
   const x = (e.clientX - r.left) / r.width;   // 0..1
   const y = (e.clientY - r.top) / r.height;
   const rotY = (x - 0.5) * 18;
@@ -814,7 +831,7 @@ document.addEventListener('mousemove', e => {
   card.style.setProperty('--shine-y', `${y * 100}%`);
 });
 document.addEventListener('mouseout', e => {
-  const card = e.target.closest('.tcard');
+  const card = e.target.closest('.tcard, .tcg-imgwrap');
   if (card && !card.contains(e.relatedTarget)) {
     card.style.transform = '';
   }
@@ -846,6 +863,7 @@ async function openDetail(id) {
     `).join('')}
     <div class="flavor" id="flavor"></div>
     <button class="moves-btn" onclick="openMoves(${p.id})">Moves it can learn</button>
+    <a class="moves-btn db-btn" href="https://pokemondb.net/pokedex/${p.name}" target="_blank">Full data on Pokémon Database</a>
   `;
   document.getElementById('modal').classList.add('open');
 
@@ -1018,8 +1036,11 @@ async function openCardGallery(id, lang = 'en') {
       <div class="tcg-card">
         <button class="fav-btn ${favorites.some(f => f.key === favKey(c, lang)) ? 'on' : ''}"
                 onclick="toggleFavGallery('${p.name}', ${i}, ${id}, '${lang}', this, event)">♥</button>
-        <img loading="lazy" src="${c.images.small}" alt="${c.name}"
-             onclick="openBuyCard('${p.name}', ${i}, ${id}, '${lang}')">
+        <div class="tcg-imgwrap">
+          <img loading="lazy" src="${c.images.small}" alt="${c.name}"
+               onclick="openBuyCard('${p.name}', ${i}, ${id}, '${lang}')">
+          <div class="shine"></div>
+        </div>
         <div class="setname">
           <b>${c.set.name}</b><br>
           ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}${c.rarity ? ' · ' + c.rarity : ''}
