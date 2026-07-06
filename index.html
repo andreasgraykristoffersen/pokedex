@@ -179,6 +179,23 @@
     margin-bottom: 12px;
   }
   .fav-save.on { background: var(--red); color: #fff; }
+  .big-wrap {
+    position: relative;
+    flex-shrink: 0;
+    margin: 0 auto;
+    width: fit-content;
+    height: fit-content;
+    align-self: flex-start;
+  }
+  .fav-mark {
+    position: absolute;
+    top: 10px; left: 10px;
+    color: var(--red);
+    font-size: 28px;
+    z-index: 2;
+    text-shadow: 0 0 4px #fff, 0 1px 3px rgba(0,0,0,0.35);
+    pointer-events: none;
+  }
 
   .tcard {
     aspect-ratio: 63 / 88;
@@ -1130,7 +1147,10 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) 
   body.innerHTML = `
     <button class="back-btn" onclick="openCardGallery(${pokeId}, '${lang}')">&larr; Back to all cards</button>
     <div class="buy-view">
-      <img class="big-img" src="${c.images.large}" alt="${c.name}">
+      <div class="big-wrap">
+        <span class="fav-mark" id="favMark" style="display:${favorites.some(f => f.key === favKey(c, lang)) ? '' : 'none'}">♥</span>
+        <img class="big-img" src="${c.images.large}" alt="${c.name}">
+      </div>
       <div class="buy-info">
         <h3>${c.name}${langNote ? ' (' + langNote.trim() + ')' : ''}</h3>
         <div class="subtitle">${c.set.name} · ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}${c.rarity ? ' · ' + c.rarity : ''}</div>
@@ -1177,6 +1197,8 @@ function buyFavToggle(btn) {
   const on = toggleFavCard(curBuyCard, lastBuy.pokeName, lastBuy.pokeId, lastBuy.lang);
   btn.classList.toggle('on', on);
   btn.textContent = on ? '♥ Saved in favorites' : '♥ Save to favorites';
+  const mark = document.getElementById('favMark');
+  if (mark) mark.style.display = on ? '' : 'none';
 }
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target.id === 'modal') closeModal();
