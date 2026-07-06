@@ -372,13 +372,11 @@
     cursor: pointer;
   }
   .moves-btn:hover { filter: brightness(1.1); }
-  .db-btn {
-    background: #30a7d7;
-    text-align: center;
-    text-decoration: none;
-    box-sizing: border-box;
-    margin-top: 8px;
-  }
+  .dex-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #222; }
+  .dex-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dex-table td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+  .dex-table td:first-child { color: #888; width: 42%; }
+  .dex-table td:last-child { text-transform: capitalize; }
   .moves-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #222; }
   .move-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .move-chip {
@@ -637,6 +635,7 @@ async function load() {
     // keep only the fields we use — full JSON for 1025 pokemon eats memory
     allPokemon.push(...results.map(p => ({
       id: p.id, name: p.name, height: p.height, weight: p.weight,
+      base_experience: p.base_experience,
       types: p.types, stats: p.stats, abilities: p.abilities,
       moves: p.moves.slice(0, 2),
       sprites: {
@@ -862,8 +861,8 @@ async function openDetail(id) {
       </div>
     `).join('')}
     <div class="flavor" id="flavor"></div>
+    <div id="dexdata"></div>
     <button class="moves-btn" onclick="openMoves(${p.id})">Moves it can learn</button>
-    <a class="moves-btn db-btn" href="https://pokemondb.net/pokedex/${p.name}" target="_blank">Full data on Pokémon Database</a>
   `;
   document.getElementById('modal').classList.add('open');
 
@@ -871,6 +870,73 @@ async function openDetail(id) {
   const txt = entryMap[id] || dexEntry(await getSpecies(id));
   const flavorEl = document.getElementById('flavor');
   if (txt && flavorEl) flavorEl.textContent = txt;
+  fillDexData(p);
+}
+
+/* ---- full pokedex data in the popup (species info + type defenses) ---- */
+const typeCache = {};
+async function getType(name) {
+  if (!typeCache[name]) {
+    typeCache[name] = fetch(`${API}/type/${name}`).then(r => r.json())
+      .catch(() => { delete typeCache[name]; return null; });
+  }
+  return typeCache[name];
+}
+
+async function fillDexData(p) {
+  const el = document.getElementById('dexdata');
+  if (!el) return;
+  const [species, ...typeData] = await Promise.all([
+    getSpecies(p.id),
+    ...p.types.map(t => getType(t.type.name))
+  ]);
+  // popup may have changed pokemon while we fetched
+  if (!document.getElementById('dexdata') || document.getElementById('dexdata') !== el) return;
+  if (!species) return;
+
+  const genus = species.genera?.find(g => g.language.name === 'en')?.genus || '—';
+  const gender = species.gender_rate === -1
+    ? 'Genderless'
+    : `${100 - species.gender_rate * 12.5}% male, ${species.gender_rate * 12.5}% female`;
+  const eggGroups = species.egg_groups.map(g => g.name).join(', ') || '—';
+  const evYield = p.stats.filter(s => s.effort > 0)
+    .map(s => `${s.effort} ${s.stat.name.replace('special-', 'sp. ')}`).join(', ') || '—';
+
+  // combine both types' damage relations into one multiplier per attack type
+  const mult = {};
+  ALL_TYPES.forEach(t => mult[t] = 1);
+  typeData.forEach(td => {
+    if (!td) return;
+    td.damage_relations.double_damage_from.forEach(t => mult[t.name] *= 2);
+    td.damage_relations.half_damage_from.forEach(t => mult[t.name] *= 0.5);
+    td.damage_relations.no_damage_from.forEach(t => mult[t.name] *= 0);
+  });
+  const weak = ALL_TYPES.filter(t => mult[t] >= 2);
+  const resist = ALL_TYPES.filter(t => mult[t] > 0 && mult[t] <= 0.5);
+  const immune = ALL_TYPES.filter(t => mult[t] === 0);
+  const chips = list => list.map(t =>
+    `<span class="type ${t}">${t}${mult[t] === 4 ? ' ×4' : ''}${mult[t] === 0.25 ? ' ×¼' : ''}</span>`).join('') || '—';
+
+  el.innerHTML = `
+    <div class="dex-title">Pokédex data</div>
+    <table class="dex-table">
+      <tr><td>Species</td><td>${genus}</td></tr>
+      <tr><td>Base experience</td><td>${p.base_experience ?? '—'}</td></tr>
+      <tr><td>Catch rate</td><td>${species.capture_rate}</td></tr>
+      <tr><td>Base friendship</td><td>${species.base_happiness ?? '—'}</td></tr>
+      <tr><td>Growth rate</td><td>${species.growth_rate?.name.replace(/-/g, ' ') || '—'}</td></tr>
+      <tr><td>Egg groups</td><td>${eggGroups}</td></tr>
+      <tr><td>Gender</td><td>${gender}</td></tr>
+      <tr><td>Hatch cycles</td><td>${species.hatch_counter ?? '—'}</td></tr>
+      <tr><td>EV yield</td><td>${evYield}</td></tr>
+    </table>
+    <div class="dex-title">Weak against</div>
+    <div class="types" style="justify-content:flex-start">${chips(weak)}</div>
+    <div class="dex-title">Resists</div>
+    <div class="types" style="justify-content:flex-start">${chips(resist)}</div>
+    ${immune.length ? `<div class="dex-title">Immune to</div>
+    <div class="types" style="justify-content:flex-start">${chips(immune)}</div>` : ''}
+  `;
 }
 
 /* ---- moves view: what it starts with, learns by level, and TMs ---- */
