@@ -433,6 +433,7 @@
   .tcg-card .setname b { color: #222; }
   .tcg-status { text-align: center; color: #888; padding: 24px; font-size: 15px; }
   .langs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 12px 0 4px; }
+  .langs:empty { display: none; }
   .lang-btn {
     border: 1.5px solid #ccc;
     background: #fff;
@@ -858,15 +859,47 @@ document.addEventListener('mouseout', e => {
   }
 });
 
-async function openDetail(id) {
-  const p = allPokemon.find(x => x.id === id);
-  if (!p) return;
+/* regional forms (Alolan, Galarian, Hisuian, Paldean) under the same number */
+const formCache = {};
+async function getForm(name, baseId) {
+  if (!formCache[name]) {
+    try {
+      const j = await fetch(`${API}/pokemon/${name}`).then(r => r.json());
+      formCache[name] = {
+        id: baseId, name: j.name, height: j.height, weight: j.weight,
+        base_experience: j.base_experience,
+        types: j.types, stats: j.stats, abilities: j.abilities,
+        moves: j.moves.slice(0, 2),
+        sprites: {
+          front_default: j.sprites.front_default,
+          other: { 'official-artwork': { front_default: j.sprites.other['official-artwork']?.front_default } }
+        }
+      };
+    } catch (e) { return null; }
+  }
+  return formCache[name];
+}
+function prettyForm(formName, baseName) {
+  const rest = formName.startsWith(baseName + '-') ? formName.slice(baseName.length + 1) : formName;
+  const MAP = { alola: 'Alolan', galar: 'Galarian', hisui: 'Hisuian', paldea: 'Paldean' };
+  return rest.split('-').map((w, i) => i === 0 && MAP[w] ? MAP[w] : w).join(' ');
+}
+
+async function openDetail(id, formName = null) {
+  const base = allPokemon.find(x => x.id === id);
+  if (!base) return;
+  let p = base, formLabel = '';
+  if (formName) {
+    const f = await getForm(formName, id);
+    if (f) { p = f; formLabel = prettyForm(formName, base.name); }
+  }
   const maxStat = 255;
   const body = document.getElementById('detailBody');
   body.innerHTML = `
     <img src="${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}" alt="${p.name}">
-    <h2>${displayName(p)}</h2>
-    <div class="num">#${String(p.id).padStart(3, '0')}</div>
+    <h2>${displayName(base)}${formLabel ? ' — ' + formLabel : ''}</h2>
+    <div class="num">#${String(id).padStart(3, '0')}</div>
+    <div class="langs" id="formRow"></div>
     <div class="types">
       ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
     </div>
@@ -892,6 +925,18 @@ async function openDetail(id) {
   const txt = entryMap[id] || dexEntry(await getSpecies(id));
   const flavorEl = document.getElementById('flavor');
   if (txt && flavorEl) flavorEl.textContent = txt;
+
+  // regional form buttons under the number, same species
+  const species = await getSpecies(id);
+  const regs = (species?.varieties || []).filter(v => /-(alola|galar|hisui|paldea)/.test(v.pokemon.name));
+  const formRow = document.getElementById('formRow');
+  if (regs.length && formRow) {
+    formRow.innerHTML =
+      `<button class="lang-btn ${!formName ? 'active' : ''}" onclick="openDetail(${id})">Normal</button>` +
+      regs.map(v =>
+        `<button class="lang-btn ${formName === v.pokemon.name ? 'active' : ''}" onclick="openDetail(${id}, '${v.pokemon.name}')">${prettyForm(v.pokemon.name, base.name)}</button>`
+      ).join('');
+  }
   fillDexData(p);
 }
 
