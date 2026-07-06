@@ -495,6 +495,17 @@
   .shop-btn.ebay { background: #e53238; }
   .shop-btn.maps { background: #188038; }
   .price-note { font-size: 11.5px; color: #999; margin-top: 8px; }
+  .jumbo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .jumbo-row input { width: 16px; height: 16px; cursor: pointer; }
 
   /* real physical stores */
   .stores-title { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: #222; }
@@ -1252,8 +1263,10 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) 
     priceRows += `<tr><td class="variant">Trend price (Cardmarket)</td><td>€${tp.toFixed(2)}${inCur(tp, 'EUR', rates)}</td></tr>`;
   }
 
+  // jumbo = oversized collector version; exact-card links only cover normal size
+  const jumbo = buyJumbo ? ' jumbo oversized' : '';
   const ebayQuery = encodeURIComponent(
-    `pokemon card ${c.name} ${c.set.name} ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}${langNote}`
+    `pokemon card ${c.name} ${c.set.name} ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}${langNote}${jumbo}`
   );
 
   body.innerHTML = `
@@ -1272,8 +1285,13 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) 
         ${priceRows
           ? `<table class="price-table">${priceRows}</table>`
           : '<p class="subtitle">No price data for this print.</p>'}
-        ${c.cardmarket?.url ? `<a class="shop-btn cardmarket" href="${c.cardmarket.url}" target="_blank">This exact card on Cardmarket (Europe)</a>` : ''}
-        ${c.tcgplayer?.url ? `<a class="shop-btn tcgplayer" href="${c.tcgplayer.url}" target="_blank">This exact card on TCGplayer (US)</a>` : ''}
+        <label class="jumbo-row">
+          <input type="checkbox" ${buyJumbo ? 'checked' : ''} onchange="toggleJumbo(this)">
+          I want the big card (jumbo / oversized version)
+        </label>
+        ${buyJumbo ? '<p class="subtitle">Searching jumbo versions — prices above are for the normal size card.</p>' : ''}
+        ${!buyJumbo && c.cardmarket?.url ? `<a class="shop-btn cardmarket" href="${c.cardmarket.url}" target="_blank">This exact card on Cardmarket (Europe)</a>` : ''}
+        ${!buyJumbo && c.tcgplayer?.url ? `<a class="shop-btn tcgplayer" href="${c.tcgplayer.url}" target="_blank">This exact card on TCGplayer (US)</a>` : ''}
         <a class="shop-btn ebay" href="https://www.ebay.com/sch/i.html?_nkw=${ebayQuery}" target="_blank">Search on eBay</a>
         <a class="shop-btn maps" href="https://www.google.com/maps/search/pokemon+kort+butik" target="_blank">Find stores near you (Google Maps)</a>
         <div class="stores-title">Card shops that sell this print</div>
@@ -1283,8 +1301,8 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) 
           // (their pages are not indexed well enough for the jump trick)
           const shopUrl = s.domain
             ? 'https://duckduckgo.com/?q=' + encodeURIComponent(
-                `\\site:${s.domain} pokemon ${c.name} ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}`)
-            : s.search.replace('{Q}', encodeURIComponent(c.name));
+                `\\site:${s.domain} pokemon ${c.name} ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}${jumbo}`)
+            : s.search.replace('{Q}', encodeURIComponent(c.name + jumbo));
           return `
           <div class="store">
             <div>
@@ -1304,6 +1322,11 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) 
   curBuyCard = c;
 }
 let curBuyCard = null;
+let buyJumbo = false;
+function toggleJumbo(el) {
+  buyJumbo = el.checked;
+  if (lastBuy) openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx);
+}
 function buyFavToggle(btn) {
   if (!curBuyCard || !lastBuy) return;
   const on = toggleFavCard(curBuyCard, lastBuy.pokeName, lastBuy.pokeId, lastBuy.lang);
