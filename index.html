@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pokédex</title>
+<meta name="theme-color" content="#e3350d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pokédex">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="%23ffffff" stroke="%231b1b1b" stroke-width="6"/><path d="M4 50 a46 46 0 0 1 92 0 Z" fill="%23e3350d"/><rect x="4" y="45" width="92" height="10" fill="%231b1b1b"/><circle cx="50" cy="50" r="14" fill="%23ffffff" stroke="%231b1b1b" stroke-width="7"/></svg>'>
 <style>
   :root {
@@ -1003,6 +1009,12 @@ typeFilter.addEventListener('change', render);
 genFilter.addEventListener('change', render);
 
 load();
+
+// installable as app on phone/tablet (needs https or localhost, not file://)
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js');
+}
 </script>
 </body>
 </html>
