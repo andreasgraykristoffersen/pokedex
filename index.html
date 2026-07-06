@@ -139,6 +139,47 @@
   body.cards-view #cards { display: grid; }
   body.cards-view #grid { display: none; }
 
+  /* favorites view */
+  #favs {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  body.favs-view #favs { display: grid; }
+  body.favs-view #grid, body.favs-view #cards { display: none; }
+  .tcg-card { position: relative; }
+  .fav-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    z-index: 3;
+    border: none;
+    background: rgba(255,255,255,0.92);
+    color: #c5c5c5;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 17px;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    line-height: 1;
+  }
+  .fav-btn:hover { color: var(--red); }
+  .fav-btn.on { color: var(--red); }
+  .fav-save {
+    border: 1.5px solid var(--red);
+    background: #fff;
+    color: var(--red);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 12px;
+  }
+  .fav-save.on { background: var(--red); color: #fff; }
+
   .tcard {
     aspect-ratio: 63 / 88;
     border-radius: 14px;
@@ -453,6 +494,7 @@
   <div class="tabs">
     <button class="tab active" id="tabDex" onclick="setView('dex')">Pokédex</button>
     <button class="tab" id="tabCards" onclick="setView('cards')">Cards</button>
+    <button class="tab" id="tabFavs" onclick="setView('favs')">♥ Favorites</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
   <select id="typeFilter">
@@ -477,6 +519,7 @@
 <div id="loader">Loading Pokémon...</div>
 <div id="grid"></div>
 <div id="cards"></div>
+<div id="favs"></div>
 
 <div id="modal">
   <div class="detail">
@@ -685,8 +728,59 @@ function renderCards(list) {
 
 function setView(view) {
   document.body.classList.toggle('cards-view', view === 'cards');
+  document.body.classList.toggle('favs-view', view === 'favs');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
+  document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
+  if (view === 'favs') renderFavs();
+}
+
+/* ---- favorite cards, saved in the browser ---- */
+let favorites = [];
+try { favorites = JSON.parse(localStorage.getItem('pokedex-favs') || '[]'); } catch (e) {}
+
+function favKey(c, lang) { return `${lang}:${c.set.name}:${c.number}:${c.name}`; }
+function saveFavs() {
+  localStorage.setItem('pokedex-favs', JSON.stringify(favorites));
+  document.getElementById('tabFavs').textContent =
+    favorites.length ? `♥ Favorites (${favorites.length})` : '♥ Favorites';
+}
+saveFavs();
+
+function toggleFavCard(c, pokeName, pokeId, lang) {
+  const key = favKey(c, lang);
+  const i = favorites.findIndex(f => f.key === key);
+  if (i >= 0) favorites.splice(i, 1);
+  else favorites.push({ key, card: c, pokeName, pokeId, lang });
+  saveFavs();
+  if (document.body.classList.contains('favs-view')) renderFavs();
+  return i < 0; // true = now favorite
+}
+
+function toggleFavGallery(pokeName, index, pokeId, lang, btn, ev) {
+  ev.stopPropagation();
+  const c = (tcgCache[`${pokeName}:${lang}`] || [])[index];
+  if (!c) return;
+  btn.classList.toggle('on', toggleFavCard(c, pokeName, pokeId, lang));
+}
+
+function renderFavs() {
+  const el = document.getElementById('favs');
+  el.innerHTML = favorites.length ? favorites.map((f, i) => `
+    <div class="tcg-card">
+      <button class="fav-btn on" onclick="favorites.splice(${i},1); saveFavs(); renderFavs();">♥</button>
+      <img loading="lazy" src="${f.card.images.small}" alt="${f.card.name}" onclick="openFav(${i})">
+      <div class="setname">
+        <b>${f.card.set.name}</b><br>
+        ${f.card.number}${f.card.set.printedTotal ? '/' + f.card.set.printedTotal : ''}${f.card.rarity ? ' · ' + f.card.rarity : ''}
+      </div>
+    </div>`).join('')
+    : '<div class="tcg-status" style="grid-column: 1 / -1">No favorite cards yet — click the ♥ on any card in the Cards galleries.</div>';
+}
+
+function openFav(i) {
+  const f = favorites[i];
+  openBuyCard(f.pokeName, -1, f.pokeId, f.lang, i);
 }
 
 /* holo tilt effect — one delegated listener, works for all cards */
@@ -905,6 +999,8 @@ async function openCardGallery(id, lang = 'en') {
       `#${String(p.id).padStart(3, '0')} · ${cards.length} cards printed`;
     body.querySelector('.tcg-grid').innerHTML = cards.map((c, i) => `
       <div class="tcg-card">
+        <button class="fav-btn ${favorites.some(f => f.key === favKey(c, lang)) ? 'on' : ''}"
+                onclick="toggleFavGallery('${p.name}', ${i}, ${id}, '${lang}', this, event)">♥</button>
         <img loading="lazy" src="${c.images.small}" alt="${c.name}"
              onclick="openBuyCard('${p.name}', ${i}, ${id}, '${lang}')">
         <div class="setname">
@@ -969,7 +1065,7 @@ curSel.addEventListener('change', () => {
   localStorage.setItem('pokedex-currency', curCode);
   // buy page open? redraw it with the new currency
   if (lastBuy && document.getElementById('modal').classList.contains('open')) {
-    openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang);
+    openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx);
   }
 });
 
@@ -1001,10 +1097,14 @@ const CARD_SHOPS = [
 
 /* ---- buy view: where to get the card in real life ---- */
 let lastBuy = null;
-async function openBuyCard(pokeName, index, pokeId, lang = 'en') {
-  const c = (tcgCache[`${pokeName}:${lang}`] || [])[index];
+async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) {
+  const c = favIdx != null
+    ? favorites[favIdx]?.card
+    : (tcgCache[`${pokeName}:${lang}`] || [])[index];
   if (!c) return;
-  lastBuy = { pokeName, index, pokeId, lang };
+  lastBuy = { pokeName, index, pokeId, lang, favIdx };
+  document.getElementById('modal').classList.add('open');
+  document.querySelector('.detail').classList.add('wide');
   const body = document.getElementById('detailBody');
   const langNote = lang === 'en' ? '' : ` ${LANGS.find(l => l.code === lang).label.slice(5)}`;
   const rates = await getRates();
@@ -1034,6 +1134,9 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en') {
       <div class="buy-info">
         <h3>${c.name}${langNote ? ' (' + langNote.trim() + ')' : ''}</h3>
         <div class="subtitle">${c.set.name} · ${c.number}${c.set.printedTotal ? '/' + c.set.printedTotal : ''}${c.rarity ? ' · ' + c.rarity : ''}</div>
+        <button class="fav-save ${favorites.some(f => f.key === favKey(c, lang)) ? 'on' : ''}" onclick="buyFavToggle(this)">
+          ${favorites.some(f => f.key === favKey(c, lang)) ? '♥ Saved in favorites' : '♥ Save to favorites'}
+        </button>
         ${priceRows
           ? `<table class="price-table">${priceRows}</table>`
           : '<p class="subtitle">No price data for this print.</p>'}
@@ -1066,6 +1169,14 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en') {
       </div>
     </div>
   `;
+  curBuyCard = c;
+}
+let curBuyCard = null;
+function buyFavToggle(btn) {
+  if (!curBuyCard || !lastBuy) return;
+  const on = toggleFavCard(curBuyCard, lastBuy.pokeName, lastBuy.pokeId, lastBuy.lang);
+  btn.classList.toggle('on', on);
+  btn.textContent = on ? '♥ Saved in favorites' : '♥ Save to favorites';
 }
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target.id === 'modal') closeModal();
