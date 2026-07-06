@@ -461,6 +461,16 @@
   <select id="genFilter">
     <option value="">All gens / games</option>
   </select>
+  <select id="nameLang">
+    <option value="en">Names: English</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="zh-Hans">中文</option>
+    <option value="de">Deutsch</option>
+    <option value="fr">Français</option>
+    <option value="es">Español</option>
+    <option value="it">Italiano</option>
+  </select>
 </header>
 
 <div id="loader">Loading Pokémon...</div>
@@ -510,6 +520,37 @@ GENS.forEach(g => {
   genFilter.appendChild(o);
 });
 
+/* ---- pokemon names in chosen language ---- */
+let nameLang = 'en';
+const nameMaps = {}; // lang -> { id: localized name }
+function displayName(p) {
+  return nameLang === 'en' ? p.name : (nameMaps[nameLang]?.[p.id] || p.name);
+}
+async function loadNames(lang) {
+  if (nameMaps[lang]) return;
+  const res = await fetch('https://beta.pokeapi.co/graphql/v1beta', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query:
+      `query { pokemon_v2_pokemonspeciesname(where: {pokemon_v2_language: {name: {_eq: "${lang}"}}}) { pokemon_species_id name } }`
+    })
+  });
+  const json = await res.json();
+  const map = {};
+  json.data.pokemon_v2_pokemonspeciesname.forEach(n => { map[n.pokemon_species_id] = n.name; });
+  nameMaps[lang] = map;
+}
+document.getElementById('nameLang').addEventListener('change', async e => {
+  const lang = e.target.value;
+  try {
+    if (lang !== 'en') await loadNames(lang);
+    nameLang = lang;
+  } catch (err) {
+    e.target.value = nameLang; // fetch failed -> stay on current language
+  }
+  render();
+});
+
 async function load() {
   const ids = Array.from({length: TOTAL_COUNT}, (_, i) => i + 1);
   // fetch in chunks to be kind to the API
@@ -541,7 +582,9 @@ function currentList() {
   const type = typeFilter.value;
   const gen = GENS.find(g => g.gen === +genFilter.value);
   return allPokemon.filter(p => {
-    const matchQ = !q || p.name.includes(q) || String(p.id) === q.replace(/^#/, '');
+    const matchQ = !q || p.name.includes(q)
+      || displayName(p).toLowerCase().includes(q)
+      || String(p.id) === q.replace(/^#/, '');
     const matchT = !type || p.types.some(t => t.type.name === type);
     const matchG = !gen || (p.id >= gen.from && p.id <= gen.to);
     return matchQ && matchT && matchG;
@@ -555,7 +598,7 @@ function render() {
     <div class="card" onclick="openDetail(${p.id})">
       <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
       <div class="num">#${String(p.id).padStart(3, '0')}</div>
-      <div class="name">${p.name}</div>
+      <div class="name">${displayName(p)}</div>
       <div class="types">
         ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
       </div>
@@ -615,7 +658,7 @@ function renderCards(list) {
     <div class="tcard ${primary}" onclick="openCardGallery(${p.id})">
       <div class="inner">
         <div class="top">
-          <span class="cname">${p.name}</span>
+          <span class="cname">${displayName(p)}</span>
           <span class="hp">HP ${hp} <span class="type ${primary}" style="font-size:10px">${primary}</span></span>
         </div>
         <div class="art">
@@ -672,7 +715,7 @@ async function openDetail(id) {
   const body = document.getElementById('detailBody');
   body.innerHTML = `
     <img src="${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}" alt="${p.name}">
-    <h2>${p.name}</h2>
+    <h2>${displayName(p)}</h2>
     <div class="num">#${String(p.id).padStart(3, '0')}</div>
     <div class="types">
       ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
@@ -804,7 +847,7 @@ async function openCardGallery(id, lang = 'en') {
   const galleryKey = `${id}:${lang}`;
   detail.dataset.gallery = galleryKey;
   body.innerHTML = `
-    <h2 class="gallery-title">${p.name} — real cards</h2>
+    <h2 class="gallery-title">${displayName(p)} — real cards</h2>
     <div class="gallery-sub">#${String(p.id).padStart(3, '0')} · Pokémon TCG</div>
     <div class="langs">
       ${LANGS.map(l => `<button class="lang-btn ${l.code === lang ? 'active' : ''}"
