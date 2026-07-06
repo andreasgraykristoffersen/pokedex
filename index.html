@@ -139,6 +139,12 @@
   body.cards-view #cards { display: grid; }
   body.cards-view #grid { display: none; }
 
+  /* card size chosen in header */
+  body.size-small #cards { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  body.size-big #cards { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  body.size-small .tcg-grid, body.size-small #favs { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  body.size-big .tcg-grid, body.size-big #favs { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+
   /* favorites view */
   #favs {
     display: none;
@@ -542,6 +548,11 @@
     <option value="it">Italiano</option>
   </select>
   <select id="curSel"></select>
+  <select id="sizeSel">
+    <option value="small">Small cards</option>
+    <option value="normal" selected>Normal cards</option>
+    <option value="big">Big cards</option>
+  </select>
 </header>
 
 <div id="loader">Loading Pokémon...</div>
@@ -1171,6 +1182,20 @@ curSel.addEventListener('change', () => {
   if (lastBuy && document.getElementById('modal').classList.contains('open')) {
     openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx);
   }
+});
+
+/* card size choice, remembered between visits */
+const sizeSel = document.getElementById('sizeSel');
+const savedSize = localStorage.getItem('pokedex-cardsize') || 'normal';
+sizeSel.value = savedSize;
+function applySize(v) {
+  document.body.classList.toggle('size-small', v === 'small');
+  document.body.classList.toggle('size-big', v === 'big');
+}
+applySize(savedSize);
+sizeSel.addEventListener('change', () => {
+  applySize(sizeSel.value);
+  localStorage.setItem('pokedex-cardsize', sizeSel.value);
 });
 
 function inCur(amount, source, rates) {
