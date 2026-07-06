@@ -68,19 +68,6 @@
     transition: background 0.15s;
   }
   .tab.active { background: #fff; color: var(--red); border-color: #fff; }
-  #installBtn {
-    display: none;
-    border: none;
-    background: #fff;
-    color: var(--red);
-    padding: 9px 18px;
-    border-radius: 24px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  #installBtn:hover { filter: brightness(0.93); }
   #search {
     margin-left: auto;
     padding: 10px 16px;
@@ -474,7 +461,6 @@
   <select id="genFilter">
     <option value="">All gens / games</option>
   </select>
-  <button id="installBtn" onclick="installApp()">⬇ Install app</button>
 </header>
 
 <div id="loader">Loading Pokémon...</div>
@@ -1028,46 +1014,6 @@ load();
 if ('serviceWorker' in navigator &&
     (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js');
-}
-
-/* ---- install button: one click makes it an app ---- */
-let installPrompt = null;
-const isStandalone = matchMedia('(display-mode: standalone)').matches
-  || navigator.standalone === true; // navigator.standalone = iOS Safari
-
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  installPrompt = e; // Chrome / Edge / Android: real install popup
-  if (!isStandalone) document.getElementById('installBtn').style.display = 'block';
-});
-
-// iOS Safari has no install popup — show button with how-to instead
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad pretends to be Mac
-if (isIOS && !isStandalone) {
-  document.getElementById('installBtn').style.display = 'block';
-}
-
-async function installApp() {
-  if (installPrompt) {
-    installPrompt.prompt();
-    const res = await installPrompt.userChoice;
-    if (res.outcome === 'accepted') document.getElementById('installBtn').style.display = 'none';
-    installPrompt = null;
-  } else {
-    const body = document.getElementById('detailBody');
-    document.querySelector('.detail').classList.remove('wide');
-    body.innerHTML = `
-      <h2>Install as app</h2>
-      <p style="margin:14px 0; line-height:1.6">
-        1. Tap the <b>Share</b> button <span style="font-size:17px">&#x2BAD;</span> in Safari<br>
-        2. Scroll and tap <b>"Add to Home Screen"</b><br>
-        3. Tap <b>Add</b> — the Pokédex appears as an app with a pokeball icon
-      </p>
-      <p style="color:#888; font-size:13px">On Android/Chrome: menu &#8942; &rarr; "Install app".</p>
-    `;
-    document.getElementById('modal').classList.add('open');
-  }
 }
 </script>
 </body>
