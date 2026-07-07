@@ -101,6 +101,14 @@
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
     box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    position: relative;
+  }
+  .fav-toggle {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 4px;
   }
   .card:hover {
     transform: translateY(-4px);
@@ -707,6 +715,7 @@ function render() {
   const grid = document.getElementById('grid');
   grid.innerHTML = list.map(p => `
     <div class="card" onclick="openDetail(${p.id})">
+      <button class="fav-btn ${favMon.includes(p.id) ? 'on' : ''}" onclick="toggleFavMon(${p.id}, this, event)">♥</button>
       <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
       <div class="num">#${String(p.id).padStart(3, '0')}</div>
       <div class="name">${displayName(p)}</div>
@@ -807,10 +816,36 @@ let favorites = [];
 try { favorites = JSON.parse(localStorage.getItem('pokedex-favs') || '[]'); } catch (e) {}
 
 function favKey(c, lang) { return `${lang}:${c.set.name}:${c.number}:${c.name}`; }
+
+/* favorite pokemon (ids), separate from favorite cards */
+let favMon = [];
+try { favMon = JSON.parse(localStorage.getItem('pokedex-fav-pokemon') || '[]'); } catch (e) {}
+
+function updateFavTab() {
+  const n = favorites.length + favMon.length;
+  document.getElementById('tabFavs').textContent = n ? `♥ Favorites (${n})` : '♥ Favorites';
+}
 function saveFavs() {
   localStorage.setItem('pokedex-favs', JSON.stringify(favorites));
-  document.getElementById('tabFavs').textContent =
-    favorites.length ? `♥ Favorites (${favorites.length})` : '♥ Favorites';
+  updateFavTab();
+}
+function saveFavMon() {
+  localStorage.setItem('pokedex-fav-pokemon', JSON.stringify(favMon));
+  updateFavTab();
+}
+function toggleFavMon(id, btn, ev) {
+  if (ev) ev.stopPropagation();
+  const i = favMon.indexOf(id);
+  if (i >= 0) favMon.splice(i, 1); else favMon.push(id);
+  saveFavMon();
+  if (btn) btn.classList.toggle('on', i < 0);
+  if (document.body.classList.contains('favs-view')) renderFavs();
+  else render(); // update hearts on the pokedex grid
+  return i < 0;
+}
+function monFavBtn(id, btn, ev) {
+  const on = toggleFavMon(id, btn, ev);
+  btn.textContent = on ? '♥ Saved as favorite' : '♥ Save as favorite';
 }
 saveFavs();
 
@@ -831,9 +866,32 @@ function toggleFavGallery(pokeName, index, pokeId, lang, btn, ev) {
   btn.classList.toggle('on', toggleFavCard(c, pokeName, pokeId, lang));
 }
 
+let favMode = 'cards'; // what the favorites tab shows: 'cards' or 'pokemon'
 function renderFavs() {
   const el = document.getElementById('favs');
-  el.innerHTML = favorites.length ? favorites.map((f, i) => `
+  const toggle = `
+    <div class="fav-toggle">
+      <button class="lang-btn ${favMode === 'cards' ? 'active' : ''}" onclick="favMode='cards'; renderFavs()">Cards (${favorites.length})</button>
+      <button class="lang-btn ${favMode === 'pokemon' ? 'active' : ''}" onclick="favMode='pokemon'; renderFavs()">Pokémon (${favMon.length})</button>
+    </div>`;
+
+  if (favMode === 'pokemon') {
+    const mons = favMon.map(id => allPokemon.find(p => p.id === id)).filter(Boolean);
+    el.innerHTML = toggle + (mons.length ? mons.map(p => `
+      <div class="card" onclick="openDetail(${p.id})">
+        <button class="fav-btn on" onclick="toggleFavMon(${p.id}, this, event)">♥</button>
+        <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
+        <div class="num">#${String(p.id).padStart(3, '0')}</div>
+        <div class="name">${displayName(p)}</div>
+        <div class="types">
+          ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
+        </div>
+      </div>`).join('')
+      : '<div class="tcg-status" style="grid-column: 1 / -1">No favorite Pokémon yet — click the ♥ on any Pokémon in the Pokédex.</div>');
+    return;
+  }
+
+  el.innerHTML = toggle + (favorites.length ? favorites.map((f, i) => `
     <div class="tcg-card">
       <button class="fav-btn on" onclick="favorites.splice(${i},1); saveFavs(); renderFavs();">♥</button>
       <div class="tcg-imgwrap">
@@ -845,7 +903,7 @@ function renderFavs() {
         ${f.card.number}${f.card.set.printedTotal ? '/' + f.card.set.printedTotal : ''}${f.card.rarity ? ' · ' + f.card.rarity : ''}
       </div>
     </div>`).join('')
-    : '<div class="tcg-status" style="grid-column: 1 / -1">No favorite cards yet — click the ♥ on any card in the Cards galleries.</div>';
+    : '<div class="tcg-status" style="grid-column: 1 / -1">No favorite cards yet — click the ♥ on any card in the Cards galleries.</div>');
 }
 
 function openFav(i) {
@@ -916,6 +974,9 @@ async function openDetail(id, formName = null) {
     <img src="${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}" alt="${p.name}">
     <h2>${displayName(base)}${formLabel ? ' — ' + formLabel : ''}</h2>
     <div class="num">#${String(id).padStart(3, '0')}</div>
+    <button class="fav-save ${favMon.includes(id) ? 'on' : ''}" onclick="monFavBtn(${id}, this, event)">
+      ${favMon.includes(id) ? '♥ Saved as favorite' : '♥ Save as favorite'}
+    </button>
     <div class="langs" id="formRow"></div>
     <div class="types">
       ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
