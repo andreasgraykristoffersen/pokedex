@@ -504,11 +504,21 @@
     transition: transform 0.1s ease-out;
     will-change: transform;
   }
-  /* rainbow holo shine on real cards, follows the mouse like the front page cards */
+  /* real cards: plain shine normally, rainbow only on holographic prints */
   .tcg-imgwrap .shine {
     position: absolute;
     inset: 0;
     border-radius: 8px;
+    background: linear-gradient(115deg, transparent 30%,
+      rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.3) 55%, transparent 70%);
+    background-size: 250% 250%;
+    background-position: var(--shine-x, 100%) var(--shine-y, 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+  .tcg-imgwrap.holo .shine {
     background: linear-gradient(115deg,
       transparent 22%,
       rgba(255, 40, 90, 0.5) 36%,
@@ -518,10 +528,6 @@
       rgba(200, 60, 255, 0.5) 68%,
       transparent 82%);
     background-size: 250% 250%;
-    background-position: var(--shine-x, 100%) var(--shine-y, 100%);
-    opacity: 0;
-    transition: opacity 0.2s;
-    pointer-events: none;
     mix-blend-mode: color-dodge;
   }
   .tcg-imgwrap:hover .shine { opacity: 1; }
@@ -909,6 +915,11 @@ try { favorites = JSON.parse(localStorage.getItem('pokedex-favs') || '[]'); } ca
 
 function favKey(c, lang) { return `${lang}:${c.set.name}:${c.number}:${c.name}`; }
 
+// holographic print? decides rainbow vs plain shine
+function isHolo(rarity) {
+  return !!rarity && /holo|shining|secret|ultra|rainbow|hyper|amazing|radiant|illustration|double rare|gold/i.test(rarity);
+}
+
 /* favorite pokemon (ids), separate from favorite cards */
 let favMon = [];
 try { favMon = JSON.parse(localStorage.getItem('pokedex-fav-pokemon') || '[]'); } catch (e) {}
@@ -986,7 +997,7 @@ function renderFavs() {
   el.innerHTML = toggle + (favorites.length ? favorites.map((f, i) => `
     <div class="tcg-card">
       <button class="fav-btn on" onclick="favorites.splice(${i},1); saveFavs(); renderFavs();">♥</button>
-      <div class="tcg-imgwrap">
+      <div class="tcg-imgwrap${isHolo(f.card.rarity) ? ' holo' : ''}">
         <img loading="lazy" src="${f.card.images.small}" alt="${f.card.name}" onclick="openFav(${i})">
         <div class="shine"></div>
       </div>
@@ -1110,7 +1121,7 @@ function renderGroups() {
       return `
       <div class="tcg-card">
         <button class="fav-btn on" onclick="removeGroupItem(${gi}, ${ii}, event)">✕</button>
-        <div class="tcg-imgwrap">
+        <div class="tcg-imgwrap${isHolo(it.card.rarity) ? ' holo' : ''}">
           <img loading="lazy" src="${it.card.images.small}" alt="${esc(it.card.name)}" onclick="openGroupCard(${gi}, ${ii})">
           <div class="shine"></div>
         </div>
@@ -1331,6 +1342,12 @@ async function fillDexData(p) {
   const evYield = p.stats.filter(s => s.effort > 0)
     .map(s => `${s.effort} ${s.stat.name.replace('special-', 'sp. ')}`).join(', ') || '—';
 
+  // every game version the pokemon has a dex entry in
+  const prettyGame = v => v.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')
+    .replace('Lets Go', "Let's Go").replace('Firered', 'FireRed').replace('Leafgreen', 'LeafGreen')
+    .replace('Heartgold', 'HeartGold').replace('Soulsilver', 'SoulSilver');
+  const gameList = [...new Set(species.flavor_text_entries.map(e => e.version.name))].map(prettyGame);
+
   // combine both types' damage relations into one multiplier per attack type
   const mult = {};
   ALL_TYPES.forEach(t => mult[t] = 1);
@@ -1359,6 +1376,10 @@ async function fillDexData(p) {
       <tr><td>Hatch cycles</td><td>${species.hatch_counter ?? '—'}</td></tr>
       <tr><td>EV yield</td><td>${evYield}</td></tr>
     </table>
+    <div class="dex-title">In these games (${gameList.length})</div>
+    <div class="move-chips">
+      ${gameList.map(g => `<span class="move-chip">${g}</span>`).join('') || '—'}
+    </div>
     <div class="dex-title">Weak against</div>
     <div class="types" style="justify-content:flex-start">${chips(weak)}</div>
     <div class="dex-title">Resists</div>
@@ -1576,7 +1597,7 @@ async function openCardGallery(id, lang = 'en') {
       <div class="tcg-card">
         <button class="fav-btn ${favorites.some(f => f.key === favKey(c, lang)) ? 'on' : ''}"
                 onclick="toggleFavGallery('${p.name}', ${i}, ${id}, '${lang}', this, event)">♥</button>
-        <div class="tcg-imgwrap">
+        <div class="tcg-imgwrap${isHolo(c.rarity) ? ' holo' : ''}">
           <img loading="lazy" src="${c.images.small}" alt="${c.name}"
                onclick="openBuyCard('${p.name}', ${i}, ${id}, '${lang}')">
           <div class="shine"></div>
