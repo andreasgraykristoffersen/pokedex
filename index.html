@@ -895,8 +895,10 @@ async function getForm(name, baseId) {
 }
 function prettyForm(formName, baseName) {
   const rest = formName.startsWith(baseName + '-') ? formName.slice(baseName.length + 1) : formName;
-  const MAP = { alola: 'Alolan', galar: 'Galarian', hisui: 'Hisuian', paldea: 'Paldean' };
-  return rest.split('-').map((w, i) => i === 0 && MAP[w] ? MAP[w] : w).join(' ');
+  const MAP = { alola: 'Alolan', galar: 'Galarian', hisui: 'Hisuian', paldea: 'Paldean', mega: 'Mega' };
+  return rest.split('-')
+    .map((w, i) => i === 0 && MAP[w] ? MAP[w] : (w.length === 1 ? w.toUpperCase() : w))
+    .join(' ');
 }
 
 async function openDetail(id, formName = null) {
@@ -944,7 +946,7 @@ async function openDetail(id, formName = null) {
   // regional form buttons under the number, same species
   const species = await getSpecies(id);
   fillEvolution(species);
-  const regs = (species?.varieties || []).filter(v => /-(alola|galar|hisui|paldea)/.test(v.pokemon.name));
+  const regs = (species?.varieties || []).filter(v => /-(alola|galar|hisui|paldea|mega)/.test(v.pokemon.name));
   const formRow = document.getElementById('formRow');
   if (regs.length && formRow) {
     formRow.innerHTML =
