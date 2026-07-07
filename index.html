@@ -379,6 +379,20 @@
   }
   .moves-btn:hover { filter: brightness(1.1); }
   .dex-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #222; }
+  .evo-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f1f1;
+  }
+  .evo-stage { text-align: center; cursor: pointer; font-size: 12.5px; text-transform: capitalize; }
+  .evo-stage:hover { color: var(--red); }
+  .evo-stage img { width: 64px; height: 64px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .evo-arrow { text-align: center; font-size: 20px; color: #888; min-width: 90px; }
+  .evo-cond { font-size: 11px; color: #666; text-transform: capitalize; line-height: 1.3; }
+  .evo-none { font-size: 13px; color: #888; }
   .dex-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .dex-table td { padding: 5px 8px; border-bottom: 1px solid #eee; }
   .dex-table td:first-child { color: #888; width: 42%; }
@@ -916,6 +930,7 @@ async function openDetail(id, formName = null) {
       </div>
     `).join('')}
     <div class="flavor" id="flavor"></div>
+    <div id="evoline"></div>
     <div id="dexdata"></div>
     <button class="moves-btn" onclick="openMoves(${p.id})">Moves it can learn</button>
   `;
@@ -928,6 +943,7 @@ async function openDetail(id, formName = null) {
 
   // regional form buttons under the number, same species
   const species = await getSpecies(id);
+  fillEvolution(species);
   const regs = (species?.varieties || []).filter(v => /-(alola|galar|hisui|paldea)/.test(v.pokemon.name));
   const formRow = document.getElementById('formRow');
   if (regs.length && formRow) {
@@ -938,6 +954,67 @@ async function openDetail(id, formName = null) {
       ).join('');
   }
   fillDexData(p);
+}
+
+/* ---- evolution chain: what it evolves into and when ---- */
+const evoCache = {};
+function idFromUrl(u) { return +u.split('/').filter(Boolean).pop(); }
+function condText(d) {
+  if (!d) return '';
+  const parts = [];
+  if (d.min_level) parts.push('Level ' + d.min_level);
+  if (d.item) parts.push(d.item.name.replace(/-/g, ' '));
+  if (d.trigger?.name === 'trade') parts.push('trade' + (d.held_item ? ' holding ' + d.held_item.name.replace(/-/g, ' ') : ''));
+  if (d.min_happiness) parts.push('high friendship');
+  if (d.time_of_day) parts.push('at ' + d.time_of_day);
+  if (d.held_item && d.trigger?.name !== 'trade') parts.push('holding ' + d.held_item.name.replace(/-/g, ' '));
+  if (d.known_move) parts.push('knows ' + d.known_move.name.replace(/-/g, ' '));
+  if (!parts.length && d.trigger) parts.push(d.trigger.name.replace(/-/g, ' '));
+  return parts.join(', ');
+}
+async function getEvoChain(species) {
+  const url = species?.evolution_chain?.url;
+  if (!url) return [];
+  if (!evoCache[url]) {
+    evoCache[url] = fetch(url).then(r => r.json()).then(j => {
+      const edges = [];
+      (function walk(node) {
+        node.evolves_to.forEach(next => {
+          edges.push({
+            fromId: idFromUrl(node.species.url), from: node.species.name,
+            toId: idFromUrl(next.species.url), to: next.species.name,
+            cond: condText(next.evolution_details[0])
+          });
+          walk(next);
+        });
+      })(j.chain);
+      return edges;
+    }).catch(() => { delete evoCache[url]; return []; });
+  }
+  return evoCache[url];
+}
+function evoStage(pid, name) {
+  const mon = allPokemon.find(x => x.id === pid);
+  const label = mon ? displayName(mon) : name;
+  const sprite = mon?.sprites.front_default || '';
+  return `<div class="evo-stage" onclick="openDetail(${pid})">
+    <img src="${sprite}" alt="${name}">
+    <div>${label}</div>
+  </div>`;
+}
+async function fillEvolution(species) {
+  const el = document.getElementById('evoline');
+  if (!el) return;
+  const edges = await getEvoChain(species);
+  if (!document.getElementById('evoline')) return; // popup changed meanwhile
+  el.innerHTML = `<div class="dex-title">Evolution</div>` + (edges.length
+    ? edges.map(e => `
+      <div class="evo-row">
+        ${evoStage(e.fromId, e.from)}
+        <div class="evo-arrow">&rarr;<div class="evo-cond">${e.cond}</div></div>
+        ${evoStage(e.toId, e.to)}
+      </div>`).join('')
+    : '<div class="evo-none">Does not evolve.</div>');
 }
 
 /* ---- full pokedex data in the popup (species info + type defenses) ---- */
