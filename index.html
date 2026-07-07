@@ -858,8 +858,8 @@ function toggleFavMon(id, btn, ev) {
   if (i >= 0) favMon.splice(i, 1); else favMon.push(id);
   saveFavMon();
   if (btn) btn.classList.toggle('on', i < 0);
+  render(); // grid hearts must match no matter where the toggle happened
   if (document.body.classList.contains('favs-view')) renderFavs();
-  else render(); // update hearts on the pokedex grid
   return i < 0;
 }
 function monFavBtn(id, btn, ev) {
