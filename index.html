@@ -164,6 +164,74 @@
   }
   body.favs-view #favs { display: grid; }
   body.favs-view #grid, body.favs-view #cards { display: none; }
+
+  /* groups view */
+  #groups {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  body.groups-view #groups { display: grid; }
+  body.groups-view #grid, body.groups-view #cards, body.groups-view #favs { display: none; }
+  body.size-small #groups { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  body.size-big #groups { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  .group-new {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .group-new input {
+    padding: 10px 16px;
+    border: 1.5px solid #ccc;
+    border-radius: 24px;
+    font-size: 14px;
+    width: min(280px, 60vw);
+    outline: none;
+  }
+  .group-new button {
+    border: none;
+    background: var(--red);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .group-head {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--red);
+  }
+  .group-head b { font-size: 18px; }
+  .group-head span { color: #888; font-size: 13px; }
+  .group-head button {
+    margin-left: auto;
+    border: 1.5px solid #ccc;
+    background: #fff;
+    color: #c0392b;
+    border-radius: 16px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .group-sel {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px;
+    border: 1.5px solid #ccc;
+    border-radius: 10px;
+    font-size: 14px;
+    background: #fff;
+  }
   .tcg-card { position: relative; }
   .fav-btn {
     position: absolute;
@@ -583,6 +651,7 @@
     <button class="tab active" id="tabDex" onclick="setView('dex')">Pokédex</button>
     <button class="tab" id="tabCards" onclick="setView('cards')">Cards</button>
     <button class="tab" id="tabFavs" onclick="setView('favs')">♥ Favorites</button>
+    <button class="tab" id="tabGroups" onclick="setView('groups')">Groups</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
   <select id="typeFilter">
@@ -613,6 +682,7 @@
 <div id="grid"></div>
 <div id="cards"></div>
 <div id="favs"></div>
+<div id="groups"></div>
 
 <div id="modal">
   <div class="detail">
@@ -824,10 +894,13 @@ function renderCards(list) {
 function setView(view) {
   document.body.classList.toggle('cards-view', view === 'cards');
   document.body.classList.toggle('favs-view', view === 'favs');
+  document.body.classList.toggle('groups-view', view === 'groups');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
   document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
+  document.getElementById('tabGroups').classList.toggle('active', view === 'groups');
   if (view === 'favs') renderFavs();
+  if (view === 'groups') renderGroups();
 }
 
 /* ---- favorite cards, saved in the browser ---- */
@@ -930,6 +1003,127 @@ function openFav(i) {
   openBuyCard(f.pokeName, -1, f.pokeId, f.lang, i);
 }
 
+/* ---- groups: user-made collections mixing pokemon and cards ---- */
+let groups = [];
+try { groups = JSON.parse(localStorage.getItem('pokedex-groups') || '[]'); } catch (e) {}
+const esc = s => String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+
+function saveGroups() {
+  localStorage.setItem('pokedex-groups', JSON.stringify(groups));
+  document.getElementById('tabGroups').textContent =
+    groups.length ? `Groups (${groups.length})` : 'Groups';
+}
+saveGroups();
+
+function groupOptions() {
+  return '<option value="">Add to group...</option>'
+    + groups.map((g, i) => `<option value="${i}">${esc(g.name)}</option>`).join('')
+    + '<option value="__new">+ New group</option>';
+}
+function resolveGroup(sel) {
+  let v = sel.value;
+  sel.value = '';
+  if (v === '__new') {
+    const name = prompt('Name for the new group:');
+    if (!name || !name.trim()) return -1;
+    groups.push({ name: name.trim(), items: [] });
+    saveGroups();
+    return groups.length - 1;
+  }
+  return v === '' ? -1 : +v;
+}
+function addPokemonToGroup(id, sel) {
+  const gi = resolveGroup(sel);
+  if (gi < 0) return;
+  if (!groups[gi].items.some(it => it.type === 'pokemon' && it.id === id)) {
+    groups[gi].items.push({ type: 'pokemon', id });
+    saveGroups();
+  }
+  sel.options[0].textContent = `Added to ${groups[gi].name} ✓`;
+  setTimeout(() => { if (sel.options) sel.options[0].textContent = 'Add to group...'; }, 1500);
+}
+function addCardToGroup(sel) {
+  if (!curBuyCard || !lastBuy) return;
+  const gi = resolveGroup(sel);
+  if (gi < 0) return;
+  const key = favKey(curBuyCard, lastBuy.lang);
+  if (!groups[gi].items.some(it => it.type === 'card' && it.key === key)) {
+    groups[gi].items.push({ type: 'card', key, card: curBuyCard, pokeName: lastBuy.pokeName, pokeId: lastBuy.pokeId, lang: lastBuy.lang });
+    saveGroups();
+  }
+  sel.options[0].textContent = `Added to ${groups[gi].name} ✓`;
+  setTimeout(() => { if (sel.options) sel.options[0].textContent = 'Add to group...'; }, 1500);
+}
+function delGroup(gi) {
+  if (!confirm(`Delete group "${groups[gi].name}"?`)) return;
+  groups.splice(gi, 1);
+  saveGroups();
+  renderGroups();
+}
+function removeGroupItem(gi, ii, ev) {
+  if (ev) ev.stopPropagation();
+  groups[gi].items.splice(ii, 1);
+  saveGroups();
+  renderGroups();
+}
+function newGroupFromInput() {
+  const inp = document.getElementById('groupName');
+  if (!inp.value.trim()) return;
+  groups.push({ name: inp.value.trim(), items: [] });
+  inp.value = '';
+  saveGroups();
+  renderGroups();
+}
+function openGroupCard(gi, ii) {
+  const it = groups[gi].items[ii];
+  openBuyCard(it.pokeName, -1, it.pokeId, it.lang, null, it.card);
+}
+
+function renderGroups() {
+  const el = document.getElementById('groups');
+  const top = `
+    <div class="group-new">
+      <input id="groupName" placeholder="New group name..." onkeydown="if(event.key==='Enter') newGroupFromInput()">
+      <button onclick="newGroupFromInput()">Create group</button>
+    </div>`;
+  el.innerHTML = top + (groups.length ? groups.map((g, gi) => `
+    <div class="group-head">
+      <b>${esc(g.name)}</b>
+      <span>${g.items.length} ${g.items.length === 1 ? 'item' : 'items'}</span>
+      <button onclick="delGroup(${gi})">Delete group</button>
+    </div>
+    ${g.items.map((it, ii) => {
+      if (it.type === 'pokemon') {
+        const p = allPokemon.find(x => x.id === it.id);
+        if (!p) return '';
+        return `
+        <div class="card" onclick="openDetail(${p.id})">
+          <button class="fav-btn on" onclick="removeGroupItem(${gi}, ${ii}, event)">✕</button>
+          <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
+          <div class="num">#${String(p.id).padStart(3, '0')}</div>
+          <div class="name">${displayName(p)}</div>
+          <div class="types">
+            ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
+          </div>
+        </div>`;
+      }
+      return `
+      <div class="tcg-card">
+        <button class="fav-btn on" onclick="removeGroupItem(${gi}, ${ii}, event)">✕</button>
+        <div class="tcg-imgwrap">
+          <img loading="lazy" src="${it.card.images.small}" alt="${esc(it.card.name)}" onclick="openGroupCard(${gi}, ${ii})">
+          <div class="shine"></div>
+        </div>
+        <div class="setname">
+          <b>${esc(it.card.set.name)}</b><br>
+          ${it.card.number}${it.card.set.printedTotal ? '/' + it.card.set.printedTotal : ''}
+        </div>
+      </div>`;
+    }).join('')}
+    ${g.items.length ? '' : '<div class="tcg-status" style="grid-column: 1 / -1">Empty group — add Pokémon from their popup or cards from their buy page.</div>'}
+  `).join('') : '<div class="tcg-status" style="grid-column: 1 / -1">No groups yet. Create one above, then add Pokémon and cards from their pages — both can live in the same group.</div>');
+}
+
 /* holo tilt effect — one delegated listener, works for all cards */
 document.addEventListener('mousemove', e => {
   const card = e.target.closest('.tcard, .tcg-imgwrap');
@@ -996,6 +1190,7 @@ async function openDetail(id, formName = null) {
     <button class="fav-save ${favMon.includes(id) ? 'on' : ''}" onclick="monFavBtn(${id}, this, event)">
       ${favMon.includes(id) ? '♥ Saved as favorite' : '♥ Save as favorite'}
     </button>
+    <select class="group-sel" onchange="addPokemonToGroup(${id}, this)">${groupOptions()}</select>
     <div class="langs" id="formRow"></div>
     <div class="types">
       ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
@@ -1448,7 +1643,7 @@ curSel.addEventListener('change', () => {
   localStorage.setItem('pokedex-currency', curCode);
   // buy page open? redraw it with the new currency
   if (lastBuy && document.getElementById('modal').classList.contains('open')) {
-    openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx);
+    openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx, lastBuy.cardObj);
   }
 });
 
@@ -1494,12 +1689,11 @@ const CARD_SHOPS = [
 
 /* ---- buy view: where to get the card in real life ---- */
 let lastBuy = null;
-async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) {
-  const c = favIdx != null
-    ? favorites[favIdx]?.card
-    : (tcgCache[`${pokeName}:${lang}`] || [])[index];
+async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, cardObj = null) {
+  const c = cardObj
+    || (favIdx != null ? favorites[favIdx]?.card : (tcgCache[`${pokeName}:${lang}`] || [])[index]);
   if (!c) return;
-  lastBuy = { pokeName, index, pokeId, lang, favIdx };
+  lastBuy = { pokeName, index, pokeId, lang, favIdx, cardObj };
   document.getElementById('modal').classList.add('open');
   document.querySelector('.detail').classList.add('wide');
   const body = document.getElementById('detailBody');
@@ -1539,6 +1733,7 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null) 
         <button class="fav-save ${favorites.some(f => f.key === favKey(c, lang)) ? 'on' : ''}" onclick="buyFavToggle(this)">
           ${favorites.some(f => f.key === favKey(c, lang)) ? '♥ Saved in favorites' : '♥ Save to favorites'}
         </button>
+        <select class="group-sel" onchange="addCardToGroup(this)">${groupOptions()}</select>
         ${priceRows
           ? `<table class="price-table">${priceRows}</table>`
           : '<p class="subtitle">No price data for this print.</p>'}
@@ -1582,7 +1777,7 @@ let curBuyCard = null;
 let buyJumbo = false;
 function toggleJumbo(el) {
   buyJumbo = el.checked;
-  if (lastBuy) openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx);
+  if (lastBuy) openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx, lastBuy.cardObj);
 }
 function buyFavToggle(btn) {
   if (!curBuyCard || !lastBuy) return;
