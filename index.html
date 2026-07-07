@@ -378,6 +378,7 @@
     cursor: pointer;
   }
   .moves-btn:hover { filter: brightness(1.1); }
+  .mega-btn { background: #a040a0; margin-top: 8px; }
   .dex-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #222; }
   .evo-row {
     display: flex;
@@ -935,6 +936,7 @@ async function openDetail(id, formName = null) {
     <div id="evoline"></div>
     <div id="dexdata"></div>
     <button class="moves-btn" onclick="openMoves(${p.id})">Moves it can learn</button>
+    <span id="megaSlot"></span>
   `;
   document.getElementById('modal').classList.add('open');
 
@@ -946,7 +948,13 @@ async function openDetail(id, formName = null) {
   // regional form buttons under the number, same species
   const species = await getSpecies(id);
   fillEvolution(species);
-  const regs = (species?.varieties || []).filter(v => /-(alola|galar|hisui|paldea|mega)/.test(v.pokemon.name));
+
+  // mega evolution gets its own button, like the moves view
+  const megaSlot = document.getElementById('megaSlot');
+  if (megaSlot && species?.varieties?.some(v => v.pokemon.name.includes('-mega'))) {
+    megaSlot.innerHTML = `<button class="moves-btn mega-btn" onclick="openMega(${id})">Mega Evolution</button>`;
+  }
+  const regs = (species?.varieties || []).filter(v => /-(alola|galar|hisui|paldea)/.test(v.pokemon.name));
   const formRow = document.getElementById('formRow');
   if (regs.length && formRow) {
     formRow.innerHTML =
@@ -1082,6 +1090,51 @@ async function fillDexData(p) {
     <div class="types" style="justify-content:flex-start">${chips(resist)}</div>
     ${immune.length ? `<div class="dex-title">Immune to</div>
     <div class="types" style="justify-content:flex-start">${chips(immune)}</div>` : ''}
+  `;
+}
+
+/* ---- mega evolution view: like the moves view, artwork + stats per mega ---- */
+async function openMega(id) {
+  const base = allPokemon.find(x => x.id === id);
+  if (!base) return;
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `
+    <button class="back-btn" onclick="openDetail(${id})">&larr; Back to ${base.name}</button>
+    <h2 style="text-transform:capitalize">${displayName(base)} — Mega Evolution</h2>
+    <div class="tcg-status">Loading mega...</div>
+  `;
+  document.getElementById('modal').classList.add('open');
+
+  const species = await getSpecies(id);
+  const megaNames = (species?.varieties || []).filter(v => v.pokemon.name.includes('-mega'));
+  const forms = (await Promise.all(megaNames.map(v => getForm(v.pokemon.name, id)))).filter(Boolean);
+  if (!forms.length) {
+    const s = body.querySelector('.tcg-status');
+    if (s) s.textContent = 'Could not load mega evolution. Try again.';
+    return;
+  }
+  const maxStat = 255;
+  body.innerHTML = `
+    <button class="back-btn" onclick="openDetail(${id})">&larr; Back to ${base.name}</button>
+    ${forms.map(f => `
+      <img src="${f.sprites.other['official-artwork']?.front_default || f.sprites.front_default}" alt="${f.name}">
+      <h2 style="text-transform:capitalize">${displayName(base)} — ${prettyForm(f.name, base.name)}</h2>
+      <div class="types">
+        ${f.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
+      </div>
+      <div class="meta">
+        <div><b>${(f.height / 10).toFixed(1)} m</b>Height</div>
+        <div><b>${(f.weight / 10).toFixed(1)} kg</b>Weight</div>
+        <div><b>${f.abilities.filter(a => !a.is_hidden).map(a => a.ability.name).join(', ')}</b>Ability</div>
+      </div>
+      ${f.stats.map(s => `
+        <div class="stat">
+          <span class="label">${s.stat.name.replace('special-', 'sp. ')}</span>
+          <span class="val">${s.base_stat}</span>
+          <div class="bar"><div style="width:${(s.base_stat / maxStat * 100).toFixed(0)}%"></div></div>
+        </div>
+      `).join('')}
+    `).join('<hr style="margin:20px 0; border:none; border-top:1px solid #eee">')}
   `;
 }
 
