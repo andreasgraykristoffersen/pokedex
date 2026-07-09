@@ -542,6 +542,19 @@
     color: #333;
   }
   .move-chip.start { background: #e6f4ea; color: #188038; font-weight: 600; }
+  .move-chip.clickable { cursor: pointer; }
+  .move-chip.clickable:hover { background: var(--red); color: #fff; }
+  .spot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid #f1f1f1;
+    font-size: 13.5px;
+  }
+  .spot-ico { font-size: 16px; flex-shrink: 0; }
+  .spot-loc { text-transform: capitalize; flex: 1; }
+  .spot-info { color: #888; white-space: nowrap; font-size: 12.5px; }
   .lvl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .lvl-table td { padding: 6px 8px; border-bottom: 1px solid #eee; text-transform: capitalize; }
   .lvl-table td:first-child { width: 60px; font-weight: 700; color: var(--red); white-space: nowrap; }
@@ -1534,6 +1547,13 @@ async function fillEvolution(species) {
     : '<div class="evo-none">Does not evolve.</div>');
 }
 
+/* pretty game version names */
+function prettyGame(v) {
+  return v.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')
+    .replace('Lets Go', "Let's Go").replace('Firered', 'FireRed').replace('Leafgreen', 'LeafGreen')
+    .replace('Heartgold', 'HeartGold').replace('Soulsilver', 'SoulSilver');
+}
+
 /* where you can catch it in the wild, per game */
 const encCache = {};
 function getEncounters(id) {
@@ -1542,6 +1562,77 @@ function getEncounters(id) {
       .catch(() => { delete encCache[id]; return []; });
   }
   return encCache[id];
+}
+
+/* how to get the pokemon in one chosen game, with pictures */
+function methodIcon(m) {
+  if (m.includes('rod')) return '🎣';
+  if (m === 'surf' || m.includes('water')) return '🌊';
+  if (m === 'walk' || m.includes('grass')) return '🌿';
+  if (m.includes('gift')) return '🎁';
+  if (m.includes('rock')) return '🪨';
+  if (m.includes('headbutt')) return '🌳';
+  if (m.includes('cave') || m.includes('dark')) return '🕳️';
+  return '✨';
+}
+async function openGameGuide(id, version) {
+  const p = allPokemon.find(x => x.id === id);
+  if (!p) return;
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `
+    <button class="back-btn" onclick="openDetail(${id})">&larr; Back to ${p.name}</button>
+    <img src="${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}" alt="${p.name}">
+    <h2 style="text-transform:capitalize">How to get ${displayName(p)}</h2>
+    <div class="num">in Pokémon ${prettyGame(version)}</div>
+    <div class="tcg-status">Looking in the game data...</div>
+  `;
+  document.getElementById('modal').classList.add('open');
+
+  const encounters = await getEncounters(id);
+  const byLoc = {};
+  (Array.isArray(encounters) ? encounters : []).forEach(e => {
+    const vd = e.version_details.find(v => v.version.name === version);
+    if (!vd) return;
+    const s = byLoc[e.location_area.name]
+      || (byLoc[e.location_area.name] = { methods: new Set(), min: 100, max: 0, chance: 0 });
+    vd.encounter_details.forEach(d => {
+      s.methods.add(d.method.name);
+      s.min = Math.min(s.min, d.min_level);
+      s.max = Math.max(s.max, d.max_level);
+      s.chance = Math.max(s.chance, d.chance);
+    });
+  });
+  const spots = Object.entries(byLoc).sort((a, b) => b[1].chance - a[1].chance);
+
+  let how;
+  if (spots.length) {
+    how = `<div class="dex-title">Catch it in the wild here:</div>`
+      + spots.slice(0, 30).map(([loc, s]) => `
+      <div class="spot">
+        <span class="spot-ico">${[...s.methods].map(methodIcon).join('')}</span>
+        <span class="spot-loc">${loc.replace(/-/g, ' ')}</span>
+        <span class="spot-info">Lv. ${s.min}${s.max > s.min ? '–' + s.max : ''}${s.chance ? ' · ' + s.chance + '%' : ''}</span>
+      </div>`).join('')
+      + (spots.length > 30 ? `<div class="price-note">+ ${spots.length - 30} more places</div>` : '')
+      + `<div class="price-note">🌿 grass / walking · 🌊 surf · 🎣 fishing rod · 🎁 gift</div>`;
+  } else {
+    const species = await getSpecies(id);
+    const edges = await getEvoChain(species);
+    const into = edges.filter(e => e.toId === id);
+    how = `<div class="dex-title">Not in the wild in this game</div>`
+      + (into.length
+        ? `<p class="subtitle" style="margin-bottom:8px">Get it by evolving:</p>`
+          + into.map(e => `
+          <div class="evo-row">
+            ${evoStage(e.fromId, e.from)}
+            <div class="evo-arrow">&rarr;<div class="evo-cond">${e.cond}</div></div>
+            ${evoStage(e.toId, e.to)}
+          </div>`).join('')
+          + `<p class="price-note" style="margin-top:10px">Or trade it from another game.</p>`
+        : '<p class="subtitle">Get it by trading from another game, or from special events.</p>');
+  }
+  const status = body.querySelector('.tcg-status');
+  if (status) status.outerHTML = how;
 }
 
 /* ---- full pokedex data in the popup (species info + type defenses) ---- */
@@ -1574,14 +1665,13 @@ async function fillDexData(p) {
   const evYield = p.stats.filter(s => s.effort > 0)
     .map(s => `${s.effort} ${s.stat.name.replace('special-', 'sp. ')}`).join(', ') || '—';
 
-  // every game version the pokemon has a dex entry in
-  const prettyGame = v => v.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')
-    .replace('Lets Go', "Let's Go").replace('Firered', 'FireRed').replace('Leafgreen', 'LeafGreen')
-    .replace('Heartgold', 'HeartGold').replace('Soulsilver', 'SoulSilver');
-  const gameList = [...new Set(species.flavor_text_entries.map(e => e.version.name))].map(prettyGame);
+  // every game version the pokemon has a dex entry in (raw names, chips are clickable)
+  const gameList = [...new Set(species.flavor_text_entries.map(e => e.version.name))];
   // games where it can actually be caught in the wild
   const catchGames = [...new Set((Array.isArray(encounters) ? encounters : [])
-    .flatMap(e => e.version_details.map(v => v.version.name)))].map(prettyGame);
+    .flatMap(e => e.version_details.map(v => v.version.name)))];
+  const gameChip = (v, cls) =>
+    `<span class="move-chip ${cls} clickable" onclick="openGameGuide(${p.id}, '${v}')">${prettyGame(v)}</span>`;
 
   // combine both types' damage relations into one multiplier per attack type
   const mult = {};
@@ -1611,13 +1701,13 @@ async function fillDexData(p) {
       <tr><td>Hatch cycles</td><td>${species.hatch_counter ?? '—'}</td></tr>
       <tr><td>EV yield</td><td>${evYield}</td></tr>
     </table>
-    <div class="dex-title">In these games (${gameList.length})</div>
+    <div class="dex-title">In these games (${gameList.length}) — click a game to see how to get it</div>
     <div class="move-chips">
-      ${gameList.map(g => `<span class="move-chip">${g}</span>`).join('') || '—'}
+      ${gameList.map(g => gameChip(g, '')).join('') || '—'}
     </div>
     <div class="dex-title">Catch it in the wild in (${catchGames.length})</div>
     <div class="move-chips">
-      ${catchGames.map(g => `<span class="move-chip start">${g}</span>`).join('')
+      ${catchGames.map(g => gameChip(g, 'start')).join('')
         || '<span class="move-chip">Not in the wild — get it by evolving, trading or events</span>'}
     </div>
     <div class="dex-title">Weak against</div>
