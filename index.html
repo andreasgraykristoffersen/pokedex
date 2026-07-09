@@ -1656,8 +1656,16 @@ async function openMega(id) {
       </button>
       <select class="group-sel" onchange="addMegaToGroup('${f.name}', ${id}, this)">${groupOptions()}</select>
     `).join('<hr style="margin:20px 0; border:none; border-top:1px solid #eee">')}
+    <div class="dex-title">Games where you can mega evolve</div>
+    <div class="move-chips">
+      ${MEGA_GAMES.map(g => `<span class="move-chip">${g}</span>`).join('')}
+    </div>
+    <div class="price-note">Needs the Mega Stone for this Pokémon in the game.</div>
   `;
 }
+// mega evolution only exists in these games
+const MEGA_GAMES = ['X', 'Y', 'Omega Ruby', 'Alpha Sapphire', 'Sun', 'Moon',
+  'Ultra Sun', 'Ultra Moon', "Let's Go Pikachu", "Let's Go Eevee", 'Pokémon GO', 'Legends Z-A'];
 
 /* ---- moves view: what it starts with, learns by level, and TMs ---- */
 const movesCache = {};
