@@ -1110,6 +1110,24 @@ function addPokemonToGroup(id, sel) {
   sel.options[0].textContent = `Added to ${groups[gi].name} ✓`;
   setTimeout(() => { if (sel.options) sel.options[0].textContent = 'Add to group...'; }, 1500);
 }
+function addMegaToGroup(formName, baseId, sel) {
+  const gi = resolveGroup(sel);
+  if (gi < 0) return;
+  const f = formCache[formName];
+  if (!f) return;
+  if (!groups[gi].items.some(it => it.type === 'mega' && it.formName === formName)) {
+    const base = allPokemon.find(x => x.id === baseId);
+    groups[gi].items.push({
+      type: 'mega', formName, baseId,
+      label: `${base ? base.name : formName} — ${prettyForm(formName, base ? base.name : '')}`,
+      sprite: f.sprites.front_default || f.sprites.other['official-artwork']?.front_default,
+      types: f.types.map(t => t.type.name)
+    });
+    saveGroups();
+  }
+  sel.options[0].textContent = `Added to ${groups[gi].name} ✓`;
+  setTimeout(() => { if (sel.options) sel.options[0].textContent = 'Add to group...'; }, 1500);
+}
 function addCardToGroup(sel) {
   if (!curBuyCard || !lastBuy) return;
   const gi = resolveGroup(sel);
@@ -1148,27 +1166,39 @@ function openGroupCard(gi, ii) {
   openBuyCard(it.pokeName, -1, it.pokeId, it.lang, null, it.card);
 }
 
-/* group icon: chosen item, else collage of first four pokemon in it */
+/* group icon: one chosen item, or collage of first four
+   (pokemon / cards / anything, user's choice) */
+function iconItemImg(it) {
+  if (it.type === 'pokemon') {
+    const p = allPokemon.find(x => x.id === it.id);
+    return p ? `<img src="${p.sprites.front_default}" alt="">` : '';
+  }
+  if (it.type === 'mega') return `<img src="${it.sprite}" alt="">`;
+  return `<img class="cardimg" src="${it.card.images.small}" alt="">`;
+}
 function groupIconHtml(g) {
-  if (g.icon) {
-    if (g.icon.kind === 'pokemon') {
-      const p = allPokemon.find(x => x.id === g.icon.id);
-      if (p) return `<img class="gicon-single" src="${p.sprites.front_default}" alt="">`;
-    } else {
-      const it = g.items.find(i => i.type === 'card' && i.key === g.icon.key);
-      if (it) return `<img class="gicon-single cardimg" src="${it.card.images.small}" alt="">`;
-    }
+  if (g.icon && g.icon.kind === 'pokemon') {
+    const p = allPokemon.find(x => x.id === g.icon.id);
+    if (p) return `<img class="gicon-single" src="${p.sprites.front_default}" alt="">`;
   }
-  const mons = g.items.filter(i => i.type === 'pokemon').slice(0, 4)
-    .map(i => allPokemon.find(x => x.id === i.id)).filter(Boolean);
-  if (mons.length) {
-    return `<div class="gicon-grid">${mons.map(p => `<img src="${p.sprites.front_default}" alt="">`).join('')}</div>`;
+  if (g.icon && g.icon.kind === 'card') {
+    const it = g.items.find(i => i.type === 'card' && i.key === g.icon.key);
+    if (it) return `<img class="gicon-single cardimg" src="${it.card.images.small}" alt="">`;
   }
-  const cards = g.items.filter(i => i.type === 'card').slice(0, 4);
-  if (cards.length) {
-    return `<div class="gicon-grid">${cards.map(c => `<img class="cardimg" src="${c.card.images.small}" alt="">`).join('')}</div>`;
+  if (g.icon && g.icon.kind === 'mega') {
+    return `<img class="gicon-single" src="${g.icon.sprite}" alt="">`;
   }
-  return '<div class="gicon-grid empty">?</div>';
+  const mode = g.icon?.kind === 'collage' ? g.icon.mode : 'pokemon';
+  const isMon = i => i.type === 'pokemon' || i.type === 'mega';
+  let picks;
+  if (mode === 'cards') picks = g.items.filter(i => i.type === 'card').slice(0, 4);
+  else if (mode === 'items') picks = g.items.slice(0, 4);
+  else {
+    picks = g.items.filter(isMon).slice(0, 4);
+    if (!picks.length) picks = g.items.filter(i => i.type === 'card').slice(0, 4);
+  }
+  if (!picks.length) return '<div class="gicon-grid empty">?</div>';
+  return `<div class="gicon-grid">${picks.map(iconItemImg).join('')}</div>`;
 }
 
 let groupView = null; // null = list of group buttons, number = open group page
@@ -1219,6 +1249,18 @@ function renderGroups() {
           </div>
         </div>`;
       }
+      if (it.type === 'mega') {
+        return `
+        <div class="card" onclick="openMega(${it.baseId})">
+          <button class="fav-btn on" onclick="removeGroupItem(${gi}, ${ii}, event)">✕</button>
+          <img loading="lazy" src="${it.sprite || ''}" alt="${esc(it.label)}">
+          <div class="num">#${String(it.baseId).padStart(3, '0')}</div>
+          <div class="name">${esc(it.label)}</div>
+          <div class="types">
+            ${(it.types || []).map(t => `<span class="type ${t}">${t}</span>`).join('')}
+          </div>
+        </div>`;
+      }
       return `
       <div class="tcg-card">
         <button class="fav-btn on" onclick="removeGroupItem(${gi}, ${ii}, event)">✕</button>
@@ -1244,14 +1286,19 @@ function openIconPicker(gi) {
   body.innerHTML = `
     <h2>Icon for "${esc(g.name)}"</h2>
     <p class="subtitle" style="text-align:center; margin:8px 0 14px">Click a Pokémon or card to make it the icon.</p>
-    <div style="text-align:center; margin-bottom:12px">
-      <button class="lang-btn" onclick="groups[${gi}].icon=null; saveGroups(); closeModal(); renderGroups()">Use default (first four Pokémon)</button>
+    <div class="langs" style="margin-bottom:12px">
+      <button class="lang-btn" onclick="groups[${gi}].icon=null; saveGroups(); closeModal(); renderGroups()">First 4 Pokémon</button>
+      <button class="lang-btn" onclick="groups[${gi}].icon={kind:'collage',mode:'cards'}; saveGroups(); closeModal(); renderGroups()">First 4 cards</button>
+      <button class="lang-btn" onclick="groups[${gi}].icon={kind:'collage',mode:'items'}; saveGroups(); closeModal(); renderGroups()">First 4 of anything</button>
     </div>
     <div class="icon-grid">
       ${g.items.map((it, ii) => {
         if (it.type === 'pokemon') {
           const p = allPokemon.find(x => x.id === it.id);
           return p ? `<img src="${p.sprites.front_default}" title="${p.name}" onclick="setGroupIcon(${gi}, ${ii})">` : '';
+        }
+        if (it.type === 'mega') {
+          return `<img src="${it.sprite}" title="${esc(it.label)}" onclick="setGroupIcon(${gi}, ${ii})">`;
         }
         return `<img class="cardimg" src="${it.card.images.small}" title="${esc(it.card.name)}" onclick="setGroupIcon(${gi}, ${ii})">`;
       }).join('') || '<span class="subtitle">Group is empty — add something first.</span>'}
@@ -1260,7 +1307,10 @@ function openIconPicker(gi) {
 }
 function setGroupIcon(gi, ii) {
   const it = groups[gi].items[ii];
-  groups[gi].icon = it.type === 'pokemon' ? { kind: 'pokemon', id: it.id } : { kind: 'card', key: it.key };
+  groups[gi].icon =
+    it.type === 'pokemon' ? { kind: 'pokemon', id: it.id }
+    : it.type === 'mega' ? { kind: 'mega', sprite: it.sprite }
+    : { kind: 'card', key: it.key };
   saveGroups();
   closeModal();
   renderGroups();
@@ -1561,6 +1611,7 @@ async function openMega(id) {
           <div class="bar"><div style="width:${(s.base_stat / maxStat * 100).toFixed(0)}%"></div></div>
         </div>
       `).join('')}
+      <select class="group-sel" onchange="addMegaToGroup('${f.name}', ${id}, this)">${groupOptions()}</select>
     `).join('<hr style="margin:20px 0; border:none; border-top:1px solid #eee">')}
   `;
 }
