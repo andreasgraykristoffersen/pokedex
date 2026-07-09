@@ -982,8 +982,37 @@ let favMon = [];
 try { favMon = JSON.parse(localStorage.getItem('pokedex-fav-pokemon') || '[]'); } catch (e) {}
 
 function updateFavTab() {
-  const n = favorites.length + favMon.length;
+  const n = favorites.length + favMon.length + favMega.length;
   document.getElementById('tabFavs').textContent = n ? `♥ Favorites (${n})` : '♥ Favorites';
+}
+
+/* favorite mega evolutions */
+let favMega = [];
+try { favMega = JSON.parse(localStorage.getItem('pokedex-fav-mega') || '[]'); } catch (e) {}
+function saveFavMega() {
+  localStorage.setItem('pokedex-fav-mega', JSON.stringify(favMega));
+  updateFavTab();
+}
+function toggleFavMega(formName, baseId, btn) {
+  const i = favMega.findIndex(m => m.formName === formName);
+  if (i >= 0) favMega.splice(i, 1);
+  else {
+    const f = formCache[formName];
+    if (!f) return;
+    const base = allPokemon.find(x => x.id === baseId);
+    favMega.push({
+      formName, baseId,
+      label: `${base ? base.name : formName} — ${prettyForm(formName, base ? base.name : '')}`,
+      sprite: f.sprites.front_default || f.sprites.other['official-artwork']?.front_default,
+      types: f.types.map(t => t.type.name)
+    });
+  }
+  saveFavMega();
+  if (btn) {
+    btn.classList.toggle('on', i < 0);
+    btn.textContent = i < 0 ? '♥ Saved as favorite' : '♥ Save as favorite';
+  }
+  if (document.body.classList.contains('favs-view')) renderFavs();
 }
 function saveFavs() {
   localStorage.setItem('pokedex-favs', JSON.stringify(favorites));
@@ -1032,12 +1061,12 @@ function renderFavs() {
   const toggle = `
     <div class="fav-toggle">
       <button class="lang-btn ${favMode === 'cards' ? 'active' : ''}" onclick="favMode='cards'; renderFavs()">Cards (${favorites.length})</button>
-      <button class="lang-btn ${favMode === 'pokemon' ? 'active' : ''}" onclick="favMode='pokemon'; renderFavs()">Pokémon (${favMon.length})</button>
+      <button class="lang-btn ${favMode === 'pokemon' ? 'active' : ''}" onclick="favMode='pokemon'; renderFavs()">Pokémon (${favMon.length + favMega.length})</button>
     </div>`;
 
   if (favMode === 'pokemon') {
     const mons = favMon.map(id => allPokemon.find(p => p.id === id)).filter(Boolean);
-    el.innerHTML = toggle + (mons.length ? mons.map(p => `
+    const monCards = mons.map(p => `
       <div class="card" onclick="openDetail(${p.id})">
         <button class="fav-btn on" onclick="toggleFavMon(${p.id}, this, event)">♥</button>
         <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
@@ -1046,8 +1075,19 @@ function renderFavs() {
         <div class="types">
           ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
         </div>
-      </div>`).join('')
-      : '<div class="tcg-status" style="grid-column: 1 / -1">No favorite Pokémon yet — click the ♥ on any Pokémon in the Pokédex.</div>');
+      </div>`).join('');
+    const megaCards = favMega.map((m, i) => `
+      <div class="card" onclick="openMega(${m.baseId})">
+        <button class="fav-btn on" onclick="event.stopPropagation(); favMega.splice(${i},1); saveFavMega(); renderFavs();">♥</button>
+        <img loading="lazy" src="${m.sprite || ''}" alt="${esc(m.label)}">
+        <div class="num">#${String(m.baseId).padStart(3, '0')}</div>
+        <div class="name">${esc(m.label)}</div>
+        <div class="types">
+          ${(m.types || []).map(t => `<span class="type ${t}">${t}</span>`).join('')}
+        </div>
+      </div>`).join('');
+    el.innerHTML = toggle + (monCards + megaCards
+      || '<div class="tcg-status" style="grid-column: 1 / -1">No favorite Pokémon yet — click the ♥ on any Pokémon in the Pokédex.</div>');
     return;
   }
 
@@ -1611,6 +1651,9 @@ async function openMega(id) {
           <div class="bar"><div style="width:${(s.base_stat / maxStat * 100).toFixed(0)}%"></div></div>
         </div>
       `).join('')}
+      <button class="fav-save ${favMega.some(m => m.formName === f.name) ? 'on' : ''}" onclick="toggleFavMega('${f.name}', ${id}, this)">
+        ${favMega.some(m => m.formName === f.name) ? '♥ Saved as favorite' : '♥ Save as favorite'}
+      </button>
       <select class="group-sel" onchange="addMegaToGroup('${f.name}', ${id}, this)">${groupOptions()}</select>
     `).join('<hr style="margin:20px 0; border:none; border-top:1px solid #eee">')}
   `;
