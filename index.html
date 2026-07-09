@@ -1534,6 +1534,16 @@ async function fillEvolution(species) {
     : '<div class="evo-none">Does not evolve.</div>');
 }
 
+/* where you can catch it in the wild, per game */
+const encCache = {};
+function getEncounters(id) {
+  if (!encCache[id]) {
+    encCache[id] = fetch(`${API}/pokemon/${id}/encounters`).then(r => r.json())
+      .catch(() => { delete encCache[id]; return []; });
+  }
+  return encCache[id];
+}
+
 /* ---- full pokedex data in the popup (species info + type defenses) ---- */
 const typeCache = {};
 async function getType(name) {
@@ -1547,8 +1557,9 @@ async function getType(name) {
 async function fillDexData(p) {
   const el = document.getElementById('dexdata');
   if (!el) return;
-  const [species, ...typeData] = await Promise.all([
+  const [species, encounters, ...typeData] = await Promise.all([
     getSpecies(p.id),
+    getEncounters(p.id),
     ...p.types.map(t => getType(t.type.name))
   ]);
   // popup may have changed pokemon while we fetched
@@ -1568,6 +1579,9 @@ async function fillDexData(p) {
     .replace('Lets Go', "Let's Go").replace('Firered', 'FireRed').replace('Leafgreen', 'LeafGreen')
     .replace('Heartgold', 'HeartGold').replace('Soulsilver', 'SoulSilver');
   const gameList = [...new Set(species.flavor_text_entries.map(e => e.version.name))].map(prettyGame);
+  // games where it can actually be caught in the wild
+  const catchGames = [...new Set((Array.isArray(encounters) ? encounters : [])
+    .flatMap(e => e.version_details.map(v => v.version.name)))].map(prettyGame);
 
   // combine both types' damage relations into one multiplier per attack type
   const mult = {};
@@ -1600,6 +1614,11 @@ async function fillDexData(p) {
     <div class="dex-title">In these games (${gameList.length})</div>
     <div class="move-chips">
       ${gameList.map(g => `<span class="move-chip">${g}</span>`).join('') || '—'}
+    </div>
+    <div class="dex-title">Catch it in the wild in (${catchGames.length})</div>
+    <div class="move-chips">
+      ${catchGames.map(g => `<span class="move-chip start">${g}</span>`).join('')
+        || '<span class="move-chip">Not in the wild — get it by evolving, trading or events</span>'}
     </div>
     <div class="dex-title">Weak against</div>
     <div class="types" style="justify-content:flex-start">${chips(weak)}</div>
