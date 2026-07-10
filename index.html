@@ -1679,6 +1679,15 @@ async function openGameGuide(id, version) {
           + `<p class="price-note" style="margin-top:10px">Or trade it from another game.</p>`
         : '<p class="subtitle">Get it by trading from another game, or from special events.</p>');
   }
+  // real gameplay: videos of people getting it in this game + picture guide
+  const ytQuery = encodeURIComponent(`how to get ${p.name} in pokemon ${prettyGame(version)}`);
+  how += `
+    <div class="dex-title">Watch real gameplay</div>
+    <a class="shop-btn ebay" href="https://www.youtube.com/results?search_query=${ytQuery}" target="_blank">
+      ▶ Gameplay videos on YouTube — how to get it in ${prettyGame(version)}</a>
+    <a class="shop-btn maps" href="https://pokemondb.net/pokedex/${p.name}" target="_blank">
+      Guide with pictures on Pokémon Database</a>`;
+
   const status = body.querySelector('.tcg-status');
   if (status) status.outerHTML = how;
 }
