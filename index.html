@@ -1109,7 +1109,18 @@ const POKE_GAMES = [
   { name: 'Brilliant Diamond / Shining Pearl', console: 'Nintendo Switch', year: 2021, mascot: 483 },
   { name: 'Legends Arceus', console: 'Nintendo Switch', year: 2022, mascot: 493 },
   { name: 'Scarlet / Violet', console: 'Nintendo Switch', year: 2022, mascot: 1007 },
-  { name: 'Legends Z-A', console: 'Nintendo Switch', year: 2025, mascot: 718 }
+  { name: 'Legends Z-A', console: 'Nintendo Switch', year: 2025, mascot: 718 },
+  // spin-offs
+  { name: 'Stadium', console: 'Nintendo 64', year: 1999, mascot: 25, spin: true },
+  { name: 'Snap', console: 'Nintendo 64', year: 1999, mascot: 25, spin: true },
+  { name: 'Stadium 2', console: 'Nintendo 64', year: 2000, mascot: 249, spin: true },
+  { name: 'Colosseum', console: 'GameCube', year: 2003, mascot: 197, spin: true },
+  { name: 'XD: Gale of Darkness', console: 'GameCube', year: 2005, mascot: 249, spin: true },
+  { name: 'Battle Revolution (Pokétopia)', console: 'Wii', year: 2006, mascot: 25, spin: true },
+  { name: 'Pokkén Tournament DX', console: 'Nintendo Switch', year: 2017, mascot: 448, spin: true },
+  { name: 'GO', console: 'Mobile', year: 2016, mascot: 25, spin: true },
+  { name: 'Mystery Dungeon: Rescue Team DX', console: 'Nintendo Switch', year: 2020, mascot: 25, spin: true },
+  { name: 'New Snap', console: 'Nintendo Switch', year: 2021, mascot: 25, spin: true }
 ];
 let consoleFilter = '';
 function renderGames() {
@@ -1122,20 +1133,23 @@ function renderGames() {
       ${consoles.map(c => `<button class="lang-btn ${consoleFilter === c ? 'active' : ''}" onclick="consoleFilter='${c}'; renderGames()">${c}</button>`).join('')}
     </div>
     ${list.map(g => {
-      const q = encodeURIComponent(`pokemon ${g.name.split(' / ')[0]} ${g.console}`);
+      const q = encodeURIComponent(`pokemon ${g.name.split(' / ')[0].split(' (')[0]} ${g.console}`);
       const isSwitch = g.console === 'Nintendo Switch';
+      const isMobile = g.console === 'Mobile';
+      const buyRow = isMobile
+        ? `<a class="b-nin" href="https://play.google.com/store/apps/details?id=com.nianticlabs.pokemongo" target="_blank">Google Play</a>
+           <a class="b-ebay" href="https://apps.apple.com/app/pokemon-go/id1094591345" target="_blank">App Store</a>`
+        : `<a class="b-ebay" href="https://www.ebay.com/sch/i.html?_nkw=${q}" target="_blank">eBay</a>
+           <a class="b-amazon" href="https://www.amazon.de/s?k=${q}" target="_blank">Amazon</a>
+           ${isSwitch ? `<a class="b-nin" href="https://www.nintendo.com/us/search/?q=${encodeURIComponent('pokemon ' + g.name.split(' / ')[0].split(' (')[0])}" target="_blank">Nintendo</a>` : ''}`;
       return `
       <div class="game-card">
         <img class="gmascot" loading="lazy"
              src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${g.mascot}.png" alt="">
         <div class="gname">Pokémon ${g.name}</div>
         <span class="console-chip">${g.console}</span>
-        <div class="gmeta">${g.year}${isSwitch ? ' · new in shops' : ' · only used (production stopped)'}</div>
-        <div class="buy-row">
-          <a class="b-ebay" href="https://www.ebay.com/sch/i.html?_nkw=${q}" target="_blank">eBay</a>
-          <a class="b-amazon" href="https://www.amazon.de/s?k=${q}" target="_blank">Amazon</a>
-          ${isSwitch ? `<a class="b-nin" href="https://www.nintendo.com/us/search/?q=${encodeURIComponent('pokemon ' + g.name.split(' / ')[0])}" target="_blank">Nintendo</a>` : ''}
-        </div>
+        <div class="gmeta">${g.year}${g.spin ? ' · spin-off' : ''}${isMobile ? ' · free app' : (isSwitch ? ' · new in shops' : ' · only used (production stopped)')}</div>
+        <div class="buy-row">${buyRow}</div>
       </div>`;
     }).join('')}`;
 }
