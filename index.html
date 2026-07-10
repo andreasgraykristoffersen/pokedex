@@ -1623,6 +1623,27 @@ function getEncounters(id) {
   return encCache[id];
 }
 
+/* find the actual youtube.com/watch video for a gameplay query and open it.
+   window opens first so popup blockers allow it */
+async function watchGameplay(query, ev) {
+  if (ev) ev.preventDefault();
+  const w = window.open('', '_blank');
+  const hosts = ['api.piped.private.coffee', 'pipedapi.adminforge.de', 'pipedapi.ducks.party'];
+  for (const h of hosts) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const j = await fetch(`https://${h}/search?q=${encodeURIComponent(query)}&filter=videos`,
+        { signal: ctrl.signal }).then(r => r.json());
+      clearTimeout(t);
+      const u = (j.items || []).find(i => i.url && i.url.startsWith('/watch'))?.url;
+      if (u) { w.location = 'https://www.youtube.com' + u; return; }
+    } catch (e) { /* try next server */ }
+  }
+  // all video servers down: jump via search engine, still lands on a video
+  w.location = 'https://duckduckgo.com/?q=' + encodeURIComponent('\\site:youtube.com ' + query);
+}
+
 /* how to get the pokemon in one chosen game, with pictures */
 function methodIcon(m) {
   if (m.includes('rod')) return '🎣';
@@ -1670,14 +1691,13 @@ async function openGameGuide(id, version) {
   if (spots.length) {
     how = `<div class="dex-title">Catch it in the wild here:</div>`
       + spots.slice(0, 30).map(([loc, s]) => {
-        const locJump = 'https://duckduckgo.com/?q=' + encodeURIComponent(
-          `\\site:youtube.com pokemon ${prettyGame(version)} ${loc.replace(/-/g, ' ')} catch ${p.name}`);
+        const locQuery = `pokemon ${prettyGame(version)} ${loc.replace(/-/g, ' ')} catch ${p.name}`;
         return `
       <div class="spot">
         <span class="spot-ico">${[...s.methods].map(methodIcon).join('')}</span>
         <span class="spot-loc">${loc.replace(/-/g, ' ')}</span>
         <span class="spot-info">Lv. ${s.min}${s.max > s.min ? '–' + s.max : ''}${s.chance ? ' · ' + s.chance + '%' : ''}</span>
-        <a class="spot-btn" href="${locJump}" target="_blank">▶ Watch</a>
+        <a class="spot-btn" href="#" data-q="${esc(locQuery)}" onclick="watchGameplay(this.dataset.q, event)">▶ Watch</a>
       </div>`;
       }).join('')
       + (spots.length > 30 ? `<div class="price-note">+ ${spots.length - 30} more places</div>` : '')
@@ -1698,13 +1718,12 @@ async function openGameGuide(id, version) {
           + `<p class="price-note" style="margin-top:10px">Or trade it from another game.</p>`
         : '<p class="subtitle">Get it by trading from another game, or from special events.</p>');
   }
-  // real gameplay: jump straight to a video of someone getting it in this game
+  // real gameplay: open the actual youtube video of someone getting it in this game
   const ytPhrase = `how to get ${p.name} in pokemon ${prettyGame(version)}`;
-  const ytJump = 'https://duckduckgo.com/?q=' + encodeURIComponent(`\\site:youtube.com ${ytPhrase}`);
   const ytSearch = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ytPhrase);
   how += `
     <div class="dex-title">Watch real gameplay</div>
-    <a class="shop-btn ebay" href="${ytJump}" target="_blank">
+    <a class="shop-btn ebay" href="#" data-q="${esc(ytPhrase)}" onclick="watchGameplay(this.dataset.q, event)">
       ▶ Watch gameplay video — how to get it in ${prettyGame(version)}</a>
     <a class="shop-btn maps" href="https://pokemondb.net/pokedex/${p.name}" target="_blank">
       Guide with pictures on Pokémon Database</a>
