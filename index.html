@@ -914,6 +914,7 @@
     <option value="normal" selected>Normal cards</option>
     <option value="big">Big cards</option>
   </select>
+  <button class="tab" id="shinyBtn" onclick="toggleShiny()">✨ Shiny</button>
 </header>
 
 <div id="loader">Loading Pokémon...</div>
@@ -966,6 +967,26 @@ GENS.forEach(g => {
   o.textContent = `Gen ${g.gen} — ${g.games}`;
   genFilter.appendChild(o);
 });
+
+/* ---- shiny mode: every sprite and artwork switches to shiny ---- */
+let shinyMode = localStorage.getItem('pokedex-shiny') === '1';
+const SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon';
+function sprUrl(p) {
+  return shinyMode ? `${SPRITE_BASE}/shiny/${p.id}.png` : (p.sprites.front_default || '');
+}
+function artUrl(p) {
+  return shinyMode
+    ? `${SPRITE_BASE}/other/official-artwork/shiny/${p.id}.png`
+    : (p.sprites.other['official-artwork']?.front_default || p.sprites.front_default || '');
+}
+function toggleShiny() {
+  shinyMode = !shinyMode;
+  localStorage.setItem('pokedex-shiny', shinyMode ? '1' : '0');
+  document.getElementById('shinyBtn').classList.toggle('active', shinyMode);
+  render();
+  if (document.body.classList.contains('favs-view')) renderFavs();
+}
+document.getElementById('shinyBtn').classList.toggle('active', shinyMode);
 
 /* ---- pokemon names in chosen language ---- */
 let nameLang = 'en';
@@ -1048,7 +1069,7 @@ function render() {
     <div class="card" onclick="openDetail(${p.id})">
       <button class="fav-btn ${favMon.includes(p.id) ? 'on' : ''}" onclick="toggleFavMon(${p.id}, this, event)">♥</button>
       <button class="catch-btn ${caught.includes(p.id) ? 'on' : ''}" title="caught?" onclick="toggleCaught(${p.id}, this, event)">◓</button>
-      <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
+      <img loading="lazy" src="${sprUrl(p)}" onerror="this.src='${p.sprites.front_default || ''}'" alt="${p.name}">
       <div class="num">#${String(p.id).padStart(3, '0')}</div>
       <div class="name">${displayName(p)}</div>
       <div class="types">
@@ -1114,7 +1135,7 @@ function renderCards(list) {
           <span class="hp">HP ${hp} <span class="type ${primary}" style="font-size:10px">${primary}</span></span>
         </div>
         <div class="art">
-          <img loading="lazy" src="${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}" alt="${p.name}">
+          <img loading="lazy" src="${artUrl(p)}" onerror="this.src='${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}'" alt="${p.name}">
         </div>
         <div class="attacks">
           ${moves.map((m, i) => `
@@ -1621,6 +1642,7 @@ function renderGroups() {
       <button class="ghead-btn" onclick="openIconPicker(${gi})">Change icon</button>
       <button onclick="delGroup(${gi})">Delete group</button>
     </div>
+    <div id="teamCheck" style="grid-column: 1 / -1"></div>
     ${g.items.map((it, ii) => {
       if (it.type === 'pokemon') {
         const p = allPokemon.find(x => x.id === it.id);
@@ -1663,6 +1685,60 @@ function renderGroups() {
     }).join('')}
     ${g.items.length ? '' : '<div class="tcg-status" style="grid-column: 1 / -1">Empty group — add Pokémon from their popup or cards from their buy page.</div>'}
   `;
+  fillTeamCheck(gi);
+}
+
+/* team check: combined weaknesses of the group's pokemon */
+async function fillTeamCheck(gi) {
+  const g = groups[gi];
+  const el = document.getElementById('teamCheck');
+  if (!el) return;
+  const members = g.items
+    .filter(i => i.type === 'pokemon' || i.type === 'mega')
+    .map(i => i.type === 'pokemon'
+      ? allPokemon.find(x => x.id === i.id)?.types.map(t => t.type.name)
+      : i.types)
+    .filter(m => m && m.length);
+  if (members.length < 2) return; // team check needs at least two pokemon
+
+  const needed = [...new Set(members.flat())];
+  const typeData = {};
+  await Promise.all(needed.map(async n => { typeData[n] = await getType(n); }));
+  if (!document.getElementById('teamCheck')) return;
+
+  const weakCount = {}, resistCount = {};
+  ALL_TYPES.forEach(t => { weakCount[t] = 0; resistCount[t] = 0; });
+  members.forEach(mtypes => {
+    const mult = {};
+    ALL_TYPES.forEach(t => mult[t] = 1);
+    mtypes.forEach(tn => {
+      const td = typeData[tn];
+      if (!td) return;
+      td.damage_relations.double_damage_from.forEach(x => mult[x.name] *= 2);
+      td.damage_relations.half_damage_from.forEach(x => mult[x.name] *= 0.5);
+      td.damage_relations.no_damage_from.forEach(x => mult[x.name] *= 0);
+    });
+    ALL_TYPES.forEach(t => {
+      if (mult[t] >= 2) weakCount[t]++;
+      if (mult[t] < 1) resistCount[t]++;
+    });
+  });
+  const danger = ALL_TYPES.filter(t => weakCount[t] > 0).sort((a, b) => weakCount[b] - weakCount[a]);
+  const covered = ALL_TYPES.filter(t => weakCount[t] === 0 && resistCount[t] > 0);
+  el.innerHTML = `
+    <div class="coll-head" style="text-align:left">
+      <div class="dex-title" style="margin-top:0">Team check — ${members.length} Pokémon</div>
+      <div class="moves-title" style="margin-top:6px">Watch out for</div>
+      <div class="move-chips">
+        ${danger.slice(0, 10).map(t =>
+          `<span class="type ${t}">${t} — ${weakCount[t]} weak${resistCount[t] === 0 ? ' · nobody resists!' : ''}</span>`).join('')
+          || '<span class="move-chip">Nothing — solid team!</span>'}
+      </div>
+      <div class="moves-title">Well covered</div>
+      <div class="move-chips">
+        ${covered.map(t => `<span class="type ${t}">${t}</span>`).join('') || '<span class="move-chip">—</span>'}
+      </div>
+    </div>`;
 }
 
 /* icon picker: click a member to make it the group icon */
@@ -1763,8 +1839,9 @@ async function openDetail(id, formName = null) {
   const maxStat = 255;
   const body = document.getElementById('detailBody');
   body.innerHTML = `
-    <img src="${p.sprites.other['official-artwork']?.front_default || p.sprites.front_default}" alt="${p.name}">
-    <h2>${displayName(base)}${formLabel ? ' — ' + formLabel : ''}</h2>
+    <img src="${!formName && shinyMode ? artUrl(p) : (p.sprites.other['official-artwork']?.front_default || p.sprites.front_default)}"
+         onerror="this.src='${p.sprites.front_default || ''}'" alt="${p.name}">
+    <h2>${displayName(base)}${formLabel ? ' — ' + formLabel : ''}${!formName && shinyMode ? ' ✨' : ''}</h2>
     <div class="num">#${String(id).padStart(3, '0')}</div>
     <button class="fav-save ${favMon.includes(id) ? 'on' : ''}" onclick="monFavBtn(${id}, this, event)">
       ${favMon.includes(id) ? '♥ Saved as favorite' : '♥ Save as favorite'}
