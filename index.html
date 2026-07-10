@@ -555,6 +555,18 @@
   .spot-ico { font-size: 16px; flex-shrink: 0; }
   .spot-loc { text-transform: capitalize; flex: 1; }
   .spot-info { color: #888; white-space: nowrap; font-size: 12.5px; }
+  .spot-btn {
+    flex-shrink: 0;
+    background: var(--red);
+    color: #fff;
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  .spot-btn:hover { filter: brightness(1.1); }
   .game-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
@@ -1657,12 +1669,17 @@ async function openGameGuide(id, version) {
   let how;
   if (spots.length) {
     how = `<div class="dex-title">Catch it in the wild here:</div>`
-      + spots.slice(0, 30).map(([loc, s]) => `
+      + spots.slice(0, 30).map(([loc, s]) => {
+        const locJump = 'https://duckduckgo.com/?q=' + encodeURIComponent(
+          `\\site:youtube.com pokemon ${prettyGame(version)} ${loc.replace(/-/g, ' ')} catch ${p.name}`);
+        return `
       <div class="spot">
         <span class="spot-ico">${[...s.methods].map(methodIcon).join('')}</span>
         <span class="spot-loc">${loc.replace(/-/g, ' ')}</span>
         <span class="spot-info">Lv. ${s.min}${s.max > s.min ? '–' + s.max : ''}${s.chance ? ' · ' + s.chance + '%' : ''}</span>
-      </div>`).join('')
+        <a class="spot-btn" href="${locJump}" target="_blank">▶ Watch</a>
+      </div>`;
+      }).join('')
       + (spots.length > 30 ? `<div class="price-note">+ ${spots.length - 30} more places</div>` : '')
       + `<div class="price-note">🌿 grass / walking · 🌊 surf · 🎣 fishing rod · 🎁 gift</div>`;
   } else {
