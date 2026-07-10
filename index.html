@@ -176,6 +176,61 @@
   }
   body.groups-view #groups { display: grid; }
   body.groups-view #grid, body.groups-view #cards, body.groups-view #favs { display: none; }
+
+  /* games view */
+  #games {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  body.games-view #games { display: grid; }
+  body.games-view #grid, body.games-view #cards, body.games-view #favs, body.games-view #groups { display: none; }
+  .console-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .game-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .game-card .gname { font-weight: 700; font-size: 16px; }
+  .game-card .gmeta { color: #888; font-size: 12.5px; }
+  .console-chip {
+    display: inline-block;
+    background: #e8f0fe;
+    color: #0b5cd6;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    align-self: flex-start;
+  }
+  .game-card .buy-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+  .game-card .buy-row a {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    color: #fff;
+    padding: 7px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .game-card .buy-row a.b-ebay { background: #e53238; }
+  .game-card .buy-row a.b-amazon { background: #ff9900; }
+  .game-card .buy-row a.b-nin { background: #e60012; }
   body.size-small #groups { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   body.size-big #groups { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
   .group-new {
@@ -765,6 +820,7 @@
     <button class="tab" id="tabCards" onclick="setView('cards')">Cards</button>
     <button class="tab" id="tabFavs" onclick="setView('favs')">♥ Favorites</button>
     <button class="tab" id="tabGroups" onclick="setView('groups')">Groups</button>
+    <button class="tab" id="tabGames" onclick="setView('games')">Games</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
   <select id="typeFilter">
@@ -796,6 +852,7 @@
 <div id="cards"></div>
 <div id="favs"></div>
 <div id="groups"></div>
+<div id="games"></div>
 
 <div id="modal">
   <div class="detail">
@@ -1008,12 +1065,67 @@ function setView(view) {
   document.body.classList.toggle('cards-view', view === 'cards');
   document.body.classList.toggle('favs-view', view === 'favs');
   document.body.classList.toggle('groups-view', view === 'groups');
+  document.body.classList.toggle('games-view', view === 'games');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
   document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
   document.getElementById('tabGroups').classList.toggle('active', view === 'groups');
+  document.getElementById('tabGames').classList.toggle('active', view === 'games');
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
+  if (view === 'games') renderGames();
+}
+
+/* ---- games tab: every main pokemon game, pick console, buy links ---- */
+const POKE_GAMES = [
+  { name: 'Red / Blue', console: 'Game Boy', year: 1996 },
+  { name: 'Yellow', console: 'Game Boy', year: 1998 },
+  { name: 'Gold / Silver', console: 'Game Boy Color', year: 1999 },
+  { name: 'Crystal', console: 'Game Boy Color', year: 2000 },
+  { name: 'Ruby / Sapphire', console: 'Game Boy Advance', year: 2002 },
+  { name: 'FireRed / LeafGreen', console: 'Game Boy Advance', year: 2004 },
+  { name: 'Emerald', console: 'Game Boy Advance', year: 2004 },
+  { name: 'Diamond / Pearl', console: 'Nintendo DS', year: 2006 },
+  { name: 'Platinum', console: 'Nintendo DS', year: 2008 },
+  { name: 'HeartGold / SoulSilver', console: 'Nintendo DS', year: 2009 },
+  { name: 'Black / White', console: 'Nintendo DS', year: 2010 },
+  { name: 'Black 2 / White 2', console: 'Nintendo DS', year: 2012 },
+  { name: 'X / Y', console: 'Nintendo 3DS', year: 2013 },
+  { name: 'Omega Ruby / Alpha Sapphire', console: 'Nintendo 3DS', year: 2014 },
+  { name: 'Sun / Moon', console: 'Nintendo 3DS', year: 2016 },
+  { name: 'Ultra Sun / Ultra Moon', console: 'Nintendo 3DS', year: 2017 },
+  { name: "Let's Go Pikachu / Eevee", console: 'Nintendo Switch', year: 2018 },
+  { name: 'Sword / Shield', console: 'Nintendo Switch', year: 2019 },
+  { name: 'Brilliant Diamond / Shining Pearl', console: 'Nintendo Switch', year: 2021 },
+  { name: 'Legends Arceus', console: 'Nintendo Switch', year: 2022 },
+  { name: 'Scarlet / Violet', console: 'Nintendo Switch', year: 2022 },
+  { name: 'Legends Z-A', console: 'Nintendo Switch', year: 2025 }
+];
+let consoleFilter = '';
+function renderGames() {
+  const el = document.getElementById('games');
+  const consoles = [...new Set(POKE_GAMES.map(g => g.console))];
+  const list = POKE_GAMES.filter(g => !consoleFilter || g.console === consoleFilter);
+  el.innerHTML = `
+    <div class="console-row">
+      <button class="lang-btn ${consoleFilter === '' ? 'active' : ''}" onclick="consoleFilter=''; renderGames()">All consoles</button>
+      ${consoles.map(c => `<button class="lang-btn ${consoleFilter === c ? 'active' : ''}" onclick="consoleFilter='${c}'; renderGames()">${c}</button>`).join('')}
+    </div>
+    ${list.map(g => {
+      const q = encodeURIComponent(`pokemon ${g.name.split(' / ')[0]} ${g.console}`);
+      const isSwitch = g.console === 'Nintendo Switch';
+      return `
+      <div class="game-card">
+        <div class="gname">Pokémon ${g.name}</div>
+        <span class="console-chip">${g.console}</span>
+        <div class="gmeta">${g.year}${isSwitch ? ' · new in shops' : ' · only used (production stopped)'}</div>
+        <div class="buy-row">
+          <a class="b-ebay" href="https://www.ebay.com/sch/i.html?_nkw=${q}" target="_blank">eBay</a>
+          <a class="b-amazon" href="https://www.amazon.de/s?k=${q}" target="_blank">Amazon</a>
+          ${isSwitch ? `<a class="b-nin" href="https://www.nintendo.com/us/search/?q=${encodeURIComponent('pokemon ' + g.name.split(' / ')[0])}" target="_blank">Nintendo</a>` : ''}
+        </div>
+      </div>`;
+    }).join('')}`;
 }
 
 /* ---- favorite cards, saved in the browser ---- */
