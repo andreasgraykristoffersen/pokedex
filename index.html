@@ -1623,42 +1623,6 @@ function getEncounters(id) {
   return encCache[id];
 }
 
-/* look up real youtube videos for gameplay queries */
-const vidCache = {};
-async function searchVideos(q) {
-  if (vidCache[q]) return vidCache[q];
-  const hosts = ['api.piped.private.coffee', 'pipedapi.adminforge.de', 'pipedapi.ducks.party'];
-  for (const h of hosts) {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 6000);
-      const j = await fetch(`https://${h}/search?q=${encodeURIComponent(q)}&filter=videos`,
-        { signal: ctrl.signal }).then(r => r.json());
-      clearTimeout(t);
-      if (Array.isArray(j.items)) { vidCache[q] = j.items; return j.items; }
-    } catch (e) { /* try next server */ }
-  }
-  return (vidCache[q] = []);
-}
-
-/* fill video button slots: each spot gets its own video (no repeats);
-   no video found -> no button at all */
-async function fillVideoButtons(container) {
-  const used = new Set();
-  for (const slot of [...container.querySelectorAll('[data-vidslot]')]) {
-    const items = await searchVideos(slot.dataset.q);
-    if (!slot.isConnected) return; // user left the page meanwhile
-    const pick = items.find(i =>
-      i.url && i.url.startsWith('/watch') && !used.has(i.url) && /pok[eé]mon/i.test(i.title || ''));
-    if (pick) {
-      used.add(pick.url);
-      slot.outerHTML = `<a class="${slot.dataset.cls}" href="https://www.youtube.com${pick.url}" target="_blank">${slot.dataset.label}</a>`;
-    } else {
-      slot.remove();
-    }
-  }
-}
-
 /* how to get the pokemon in one chosen game, with pictures */
 function methodIcon(m) {
   if (m.includes('rod')) return '🎣';
@@ -1706,13 +1670,11 @@ async function openGameGuide(id, version) {
   if (spots.length) {
     how = `<div class="dex-title">Catch it in the wild here:</div>`
       + spots.slice(0, 30).map(([loc, s]) => {
-        const locQuery = `pokemon ${prettyGame(version)} ${loc.replace(/-/g, ' ')} catch ${p.name}`;
         return `
       <div class="spot">
         <span class="spot-ico">${[...s.methods].map(methodIcon).join('')}</span>
         <span class="spot-loc">${loc.replace(/-/g, ' ')}</span>
         <span class="spot-info">Lv. ${s.min}${s.max > s.min ? '–' + s.max : ''}${s.chance ? ' · ' + s.chance + '%' : ''}</span>
-        <span data-vidslot data-cls="spot-btn" data-label="▶ Watch" data-q="${esc(locQuery)}"></span>
       </div>`;
       }).join('')
       + (spots.length > 30 ? `<div class="price-note">+ ${spots.length - 30} more places</div>` : '')
@@ -1733,20 +1695,15 @@ async function openGameGuide(id, version) {
           + `<p class="price-note" style="margin-top:10px">Or trade it from another game.</p>`
         : '<p class="subtitle">Get it by trading from another game, or from special events.</p>');
   }
-  // real gameplay: open the actual youtube video of someone getting it in this game
+  // one gameplay search button at the bottom
   const ytPhrase = `how to get ${p.name} in pokemon ${prettyGame(version)}`;
   const ytSearch = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ytPhrase);
   how += `
-    <div class="dex-title">Watch real gameplay</div>
-    <span data-vidslot data-cls="shop-btn ebay" data-q="${esc(ytPhrase)}"
-          data-label="▶ Watch gameplay video — how to get it in ${esc(prettyGame(version))}"></span>
-    <a class="shop-btn maps" href="https://pokemondb.net/pokedex/${p.name}" target="_blank">
-      Guide with pictures on Pokémon Database</a>
-    <div class="price-note" style="text-align:center">Wrong video? <a href="${ytSearch}" target="_blank">See more gameplay videos</a></div>`;
+    <a class="shop-btn ebay" href="${ytSearch}" target="_blank">
+      ▶ Search gameplay videos on YouTube</a>`;
 
   const status = body.querySelector('.tcg-status');
   if (status) status.outerHTML = how;
-  fillVideoButtons(body); // buttons pop in as videos are found
 }
 
 /* ---- full pokedex data in the popup (species info + type defenses) ---- */
