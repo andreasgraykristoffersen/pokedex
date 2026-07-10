@@ -228,6 +228,20 @@
     cursor: pointer;
   }
   .own-btn.on { background: #188038; color: #fff; }
+  .catch-btn {
+    position: absolute;
+    top: 6px; left: 6px;
+    z-index: 3;
+    border: none;
+    background: rgba(255,255,255,0.92);
+    color: #c5c5c5;
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .catch-btn.on { color: var(--red); }
   .console-row {
     grid-column: 1 / -1;
     display: flex;
@@ -879,6 +893,11 @@
   <select id="genFilter">
     <option value="">All gens / games</option>
   </select>
+  <select id="caughtFilter">
+    <option value="">Caught + not caught</option>
+    <option value="caught">Only caught</option>
+    <option value="missing">Only missing</option>
+  </select>
   <select id="nameLang">
     <option value="en">Names: English</option>
     <option value="ja">日本語</option>
@@ -1010,13 +1029,15 @@ function currentList() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   const type = typeFilter.value;
   const gen = GENS.find(g => g.gen === +genFilter.value);
+  const cf = document.getElementById('caughtFilter').value;
   return allPokemon.filter(p => {
     const matchQ = !q || p.name.includes(q)
       || displayName(p).toLowerCase().includes(q)
       || String(p.id) === q.replace(/^#/, '');
     const matchT = !type || p.types.some(t => t.type.name === type);
     const matchG = !gen || (p.id >= gen.from && p.id <= gen.to);
-    return matchQ && matchT && matchG;
+    const matchC = !cf || (cf === 'caught') === caught.includes(p.id);
+    return matchQ && matchT && matchG && matchC;
   });
 }
 
@@ -1026,6 +1047,7 @@ function render() {
   grid.innerHTML = list.map(p => `
     <div class="card" onclick="openDetail(${p.id})">
       <button class="fav-btn ${favMon.includes(p.id) ? 'on' : ''}" onclick="toggleFavMon(${p.id}, this, event)">♥</button>
+      <button class="catch-btn ${caught.includes(p.id) ? 'on' : ''}" title="caught?" onclick="toggleCaught(${p.id}, this, event)">◓</button>
       <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
       <div class="num">#${String(p.id).padStart(3, '0')}</div>
       <div class="name">${displayName(p)}</div>
@@ -1277,6 +1299,30 @@ function favKey(c, lang) { return `${lang}:${c.set.name}:${c.number}:${c.name}`;
 function isHolo(rarity) {
   return !!rarity && /holo|shining|secret|ultra|rainbow|hyper|amazing|radiant|illustration|double rare|gold/i.test(rarity);
 }
+
+/* caught pokemon, like ticking off a real pokedex */
+let caught = [];
+try { caught = JSON.parse(localStorage.getItem('pokedex-caught') || '[]'); } catch (e) {}
+function saveCaught() {
+  localStorage.setItem('pokedex-caught', JSON.stringify(caught));
+  document.getElementById('tabDex').textContent =
+    caught.length ? `Pokédex (${caught.length}/${TOTAL_COUNT})` : 'Pokédex';
+}
+function toggleCaught(id, btn, ev) {
+  if (ev) ev.stopPropagation();
+  const i = caught.indexOf(id);
+  if (i >= 0) caught.splice(i, 1); else caught.push(id);
+  saveCaught();
+  render();
+  return i < 0;
+}
+function caughtBtnPopup(id, btn, ev) {
+  const on = toggleCaught(id, btn, ev);
+  btn.classList.toggle('on', on);
+  btn.textContent = on ? '✔ Caught' : 'Mark as caught';
+}
+document.getElementById('caughtFilter').addEventListener('change', render);
+saveCaught();
 
 /* favorite pokemon (ids), separate from favorite cards */
 let favMon = [];
@@ -1722,6 +1768,9 @@ async function openDetail(id, formName = null) {
     <div class="num">#${String(id).padStart(3, '0')}</div>
     <button class="fav-save ${favMon.includes(id) ? 'on' : ''}" onclick="monFavBtn(${id}, this, event)">
       ${favMon.includes(id) ? '♥ Saved as favorite' : '♥ Save as favorite'}
+    </button>
+    <button class="own-btn ${caught.includes(id) ? 'on' : ''}" onclick="caughtBtnPopup(${id}, this, event)" style="margin-top:8px">
+      ${caught.includes(id) ? '✔ Caught' : 'Mark as caught'}
     </button>
     <select class="group-sel" onchange="addPokemonToGroup(${id}, this)">${groupOptions()}</select>
     <div class="langs" id="formRow"></div>
