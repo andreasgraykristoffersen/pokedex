@@ -200,7 +200,76 @@
   }
   body.coll-view #coll { display: grid; }
   body.coll-view #grid, body.coll-view #cards, body.coll-view #favs,
-  body.coll-view #groups, body.coll-view #games { display: none; }
+  body.coll-view #groups, body.coll-view #games, body.coll-view #trainers { display: none; }
+
+  /* items & trainers view */
+  #trainers {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  body.trainers-view #trainers { display: grid; }
+  body.trainers-view #grid, body.trainers-view #cards, body.trainers-view #favs,
+  body.trainers-view #groups, body.trainers-view #games, body.trainers-view #coll { display: none; }
+  body.size-small #trainers { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  body.size-big #trainers { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  .trainer-top {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .trainer-top input {
+    padding: 9px 16px;
+    border: 1.5px solid #ccc;
+    border-radius: 24px;
+    font-size: 14px;
+    width: min(240px, 50vw);
+    outline: none;
+  }
+  .load-more {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+  .load-more button {
+    border: none;
+    background: var(--red);
+    color: #fff;
+    padding: 11px 28px;
+    border-radius: 24px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .qty-badge {
+    position: absolute;
+    top: 6px; left: 6px;
+    z-index: 3;
+    background: #188038;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 12px;
+    padding: 3px 9px;
+  }
+  .own-row { display: flex; gap: 8px; margin-top: 8px; }
+  .own-row .own-btn { margin: 0; flex: 1; }
+  .own-minus {
+    width: 46px;
+    border: 1.5px solid #c0392b;
+    border-radius: 10px;
+    background: #fff;
+    color: #c0392b;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pchart { margin-top: 14px; }
+  .pchart svg { width: 100%; height: auto; display: block; }
   body.size-small #coll { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   body.size-big #coll { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
   .coll-head {
@@ -884,6 +953,7 @@
     <button class="tab" id="tabFavs" onclick="setView('favs')">♥ Favorites</button>
     <button class="tab" id="tabGroups" onclick="setView('groups')">Groups</button>
     <button class="tab" id="tabGames" onclick="setView('games')">Games</button>
+    <button class="tab" id="tabTrainers" onclick="setView('trainers')">Items & Trainers</button>
     <button class="tab" id="tabColl" onclick="setView('coll')">My Collection</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
@@ -924,6 +994,7 @@
 <div id="groups"></div>
 <div id="games"></div>
 <div id="coll"></div>
+<div id="trainers"></div>
 
 <div id="modal">
   <div class="detail">
@@ -1161,25 +1232,102 @@ function setView(view) {
   document.body.classList.toggle('groups-view', view === 'groups');
   document.body.classList.toggle('games-view', view === 'games');
   document.body.classList.toggle('coll-view', view === 'coll');
+  document.body.classList.toggle('trainers-view', view === 'trainers');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
   document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
   document.getElementById('tabGroups').classList.toggle('active', view === 'groups');
   document.getElementById('tabGames').classList.toggle('active', view === 'games');
   document.getElementById('tabColl').classList.toggle('active', view === 'coll');
+  document.getElementById('tabTrainers').classList.toggle('active', view === 'trainers');
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
   if (view === 'games') renderGames();
   if (view === 'coll') renderCollection();
+  if (view === 'trainers') {
+    if (!trainerList.length && !trainerLoading) loadTrainers(true);
+    else renderTrainers();
+  }
+}
+
+/* ---- items, trainers and stadium cards ---- */
+let trainerList = [];
+let trainerSub = '';      // '' all, Item, Supporter, Stadium, Pokémon Tool
+let trainerQuery = '';
+let trainerPage = 1;
+let trainerTotal = 0;
+let trainerLoading = false;
+const TRAINER_SUBS = ['Item', 'Supporter', 'Stadium', 'Pokémon Tool'];
+
+async function loadTrainers(reset) {
+  if (trainerLoading) return;
+  trainerLoading = true;
+  if (reset) { trainerList = []; trainerPage = 1; trainerTotal = 0; }
+  let q = 'supertype:Trainer';
+  if (trainerSub) q += ` subtypes:"${trainerSub}"`;
+  if (trainerQuery) q += ` name:"${trainerQuery}"`;
+  try {
+    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&orderBy=-set.releaseDate&pageSize=60&page=${trainerPage}`;
+    const json = await fetchWithRetry(url);
+    trainerList = trainerList.concat(json.data || []);
+    trainerTotal = json.totalCount || 0;
+    trainerPage++;
+  } catch (e) { /* status shown in render */ }
+  trainerLoading = false;
+  renderTrainers(true);
+}
+
+function trainerSearch() {
+  trainerQuery = document.getElementById('trainerQ').value.trim();
+  loadTrainers(true);
+  renderTrainers();
+}
+
+function renderTrainers(keepInput) {
+  const el = document.getElementById('trainers');
+  const top = `
+    <div class="trainer-top">
+      <button class="lang-btn ${trainerSub === '' ? 'active' : ''}" onclick="trainerSub=''; loadTrainers(true)">All</button>
+      ${TRAINER_SUBS.map(s => `<button class="lang-btn ${trainerSub === s ? 'active' : ''}" onclick="trainerSub='${s}'; loadTrainers(true)">${s}</button>`).join('')}
+      <input id="trainerQ" placeholder="Search card name..." value="${esc(trainerQuery)}"
+             onkeydown="if(event.key==='Enter') trainerSearch()">
+      <button class="lang-btn" onclick="trainerSearch()">Search</button>
+    </div>`;
+  const cards = trainerList.map((c, i) => `
+    <div class="tcg-card">
+      <div class="tcg-imgwrap${isHolo(c.rarity) ? ' holo' : ''}">
+        <img loading="lazy" src="${c.images.small}" alt="${esc(c.name)}" onclick="openTrainerCard(${i})">
+        <div class="shine"></div>
+      </div>
+      <div class="setname">
+        <b>${esc(c.set.name)}</b><br>
+        ${c.number}/${c.set.printedTotal}${c.rarity ? ' · ' + c.rarity : ''}
+      </div>
+    </div>`).join('');
+  const more = trainerList.length < trainerTotal
+    ? `<div class="load-more"><button onclick="loadTrainers()">Load more (${trainerList.length}/${trainerTotal})</button></div>`
+    : '';
+  const status = trainerLoading
+    ? '<div class="tcg-status" style="grid-column: 1 / -1">Loading cards...</div>'
+    : (!trainerList.length ? '<div class="tcg-status" style="grid-column: 1 / -1">No cards found.</div>' : '');
+  el.innerHTML = top + cards + status + more;
+}
+
+function openTrainerCard(i) {
+  const c = trainerList[i];
+  openBuyCard(c.name, -1, 0, 'en', null, c);
 }
 
 /* ---- my collection: cards you own, with live total value ---- */
 let collection = [];
 try { collection = JSON.parse(localStorage.getItem('pokedex-collection') || '[]'); } catch (e) {}
+collection.forEach(o => { if (!o.qty) o.qty = 1; }); // older saves had no duplicates
+function collCount() { return collection.reduce((s, o) => s + o.qty, 0); }
 function saveCollection() {
   localStorage.setItem('pokedex-collection', JSON.stringify(collection));
+  const n = collCount();
   document.getElementById('tabColl').textContent =
-    collection.length ? `My Collection (${collection.length})` : 'My Collection';
+    n ? `My Collection (${n})` : 'My Collection';
 }
 saveCollection();
 function cardValue(c, rates) {
@@ -1198,28 +1346,50 @@ function curFmt(v) {
   const dec = curCode === 'JPY' ? 0 : 2;
   return v.toFixed(dec).replace('.', ',') + ' ' + CURRENCIES[curCode];
 }
-function toggleOwn(btn) {
-  if (!curBuyCard || !lastBuy) return;
-  const key = favKey(curBuyCard, lastBuy.lang);
-  const i = collection.findIndex(o => o.key === key);
-  if (i >= 0) collection.splice(i, 1);
-  else collection.push({ key, card: curBuyCard, pokeName: lastBuy.pokeName, pokeId: lastBuy.pokeId, lang: lastBuy.lang });
-  saveCollection();
-  if (btn) {
-    btn.classList.toggle('on', i < 0);
-    btn.textContent = i < 0 ? '✓ In my collection' : '+ I own this card';
+// duplicates allowed: each copy counts, value multiplies
+function ownChange(delta, fromColl, ci) {
+  let o;
+  if (fromColl) {
+    o = collection[ci];
+  } else {
+    if (!curBuyCard || !lastBuy) return;
+    const key = favKey(curBuyCard, lastBuy.lang);
+    o = collection.find(x => x.key === key);
+    if (!o && delta > 0) {
+      o = { key, card: curBuyCard, pokeName: lastBuy.pokeName, pokeId: lastBuy.pokeId, lang: lastBuy.lang, qty: 0 };
+      collection.push(o);
+    }
   }
+  if (!o) return;
+  o.qty += delta;
+  if (o.qty <= 0) collection.splice(collection.indexOf(o), 1);
+  saveCollection();
+  if (fromColl || document.body.classList.contains('coll-view')) renderCollection();
+  const row = document.getElementById('ownRow');
+  if (row && !fromColl) row.outerHTML = ownRowHtml(curBuyCard, lastBuy.lang);
+}
+function ownRowHtml(c, lang) {
+  const o = collection.find(x => x.key === favKey(c, lang));
+  const n = o ? o.qty : 0;
+  return `
+  <div class="own-row" id="ownRow">
+    <button class="own-btn ${n ? 'on' : ''}" onclick="ownChange(1)">
+      ${n ? `✓ In my collection ×${n} — add one more` : '+ I own this card'}
+    </button>
+    ${n ? '<button class="own-minus" onclick="ownChange(-1)">−</button>' : ''}
+  </div>`;
 }
 async function renderCollection() {
   const el = document.getElementById('coll');
   const rates = await getRates();
   if (!document.body.classList.contains('coll-view')) return;
-  let total = 0, priced = 0;
+  let total = 0, unpriced = 0;
   const cardsHtml = collection.map((o, i) => {
     const v = cardValue(o.card, rates);
-    if (v != null) { total += v; priced++; }
+    if (v != null) total += v * o.qty; else unpriced += o.qty;
     return `
     <div class="tcg-card">
+      ${o.qty > 1 ? `<span class="qty-badge">×${o.qty}</span>` : ''}
       <button class="fav-btn on" onclick="collection.splice(${i},1); saveCollection(); renderCollection();">✕</button>
       <div class="tcg-imgwrap${isHolo(o.card.rarity) ? ' holo' : ''}">
         <img loading="lazy" src="${o.card.images.small}" alt="${esc(o.card.name)}"
@@ -1229,14 +1399,19 @@ async function renderCollection() {
       <div class="setname">
         <b>${esc(o.card.set.name)}</b><br>
         ${o.card.number}${o.card.set.printedTotal ? '/' + o.card.set.printedTotal : ''}
-        <div class="card-price">${v != null ? curFmt(v) : 'no price data'}</div>
+        <div class="card-price">${v != null ? (o.qty > 1 ? `${o.qty} × ${curFmt(v)} = ${curFmt(v * o.qty)}` : curFmt(v)) : 'no price data'}</div>
+        <div style="margin-top:4px">
+          <button class="lang-btn" style="padding:2px 12px" onclick="ownChange(-1, true, ${i})">−</button>
+          <button class="lang-btn" style="padding:2px 12px" onclick="ownChange(1, true, ${i})">+</button>
+        </div>
       </div>
     </div>`;
   }).join('');
+  const n = collCount();
   el.innerHTML = `
     <div class="coll-head">
       <div class="coll-value">${rates ? curFmt(total) : '—'}</div>
-      <div class="coll-sub">${collection.length} ${collection.length === 1 ? 'card' : 'cards'} in your collection${priced < collection.length ? ` · ${collection.length - priced} without price data` : ''} · market prices update daily</div>
+      <div class="coll-sub">${n} ${n === 1 ? 'card' : 'cards'} in your collection${unpriced ? ` · ${unpriced} without price data` : ''} · market prices update daily</div>
     </div>
     ${cardsHtml || '<div class="tcg-status" style="grid-column: 1 / -1">No cards yet — open a card\'s buy page and press "+ I own this card".</div>'}`;
 }
@@ -2508,6 +2683,46 @@ const CARD_SHOPS = [
     search: 'https://www.cardrush-pokemon.jp/product-list?keyword={Q}' }
 ];
 
+/* price chart: cardmarket 30/7/1-day averages + trend, else tcgplayer low-high */
+function priceChartHtml(c, rates) {
+  const conv = (v, src) => rates && rates[curCode] && rates[src] ? v * rates[curCode] / rates[src] : null;
+  const pts = [];
+  const cm = c.cardmarket?.prices;
+  if (cm) {
+    [['avg30', '30 days ago'], ['avg7', '7 days ago'], ['avg1', 'yesterday'], ['trendPrice', 'trend now']]
+      .forEach(([k, lbl]) => {
+        if (cm[k] != null) { const v = conv(cm[k], 'EUR'); if (v != null) pts.push({ lbl, v }); }
+      });
+  }
+  if (pts.length < 2 && c.tcgplayer?.prices) {
+    const pr = Object.values(c.tcgplayer.prices)[0];
+    if (pr) [['low', 'cheapest'], ['mid', 'middle'], ['market', 'market'], ['high', 'highest']]
+      .forEach(([k, lbl]) => {
+        if (pr[k] != null) { const v = conv(pr[k], 'USD'); if (v != null) pts.push({ lbl, v }); }
+      });
+  }
+  if (pts.length < 2) return '';
+  const W = 420, H = 150, padL = 14, padR = 14, padT = 26, padB = 26;
+  const min = Math.min(...pts.map(p => p.v)), max = Math.max(...pts.map(p => p.v));
+  const span = max - min || 1;
+  const x = i => padL + i * (W - padL - padR) / (pts.length - 1);
+  const y = v => padT + (max - v) * (H - padT - padB) / span;
+  return `
+    <div class="dex-title">Price chart</div>
+    <div class="pchart">
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        <polyline points="${pts.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')}"
+                  fill="none" stroke="#188038" stroke-width="2.5"/>
+        ${pts.map((p, i) => `
+          <circle cx="${x(i)}" cy="${y(p.v)}" r="4" fill="#188038"/>
+          <text x="${x(i)}" y="${y(p.v) - 9}" font-size="11" font-weight="700" fill="#222"
+                text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${curFmt(p.v)}</text>
+          <text x="${x(i)}" y="${H - 8}" font-size="10" fill="#888"
+                text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${p.lbl}</text>`).join('')}
+      </svg>
+    </div>`;
+}
+
 /* ---- buy view: where to get the card in real life ---- */
 let lastBuy = null;
 async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, cardObj = null) {
@@ -2542,7 +2757,7 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, 
   );
 
   body.innerHTML = `
-    <button class="back-btn" onclick="openCardGallery(${pokeId}, '${lang}')">&larr; Back to all cards</button>
+    <button class="back-btn" onclick="${pokeId ? `openCardGallery(${pokeId}, '${lang}')` : 'closeModal()'}">&larr; Back to all cards</button>
     <div class="buy-view">
       <div class="big-wrap">
         <span class="fav-mark" id="favMark" style="display:${favorites.some(f => f.key === favKey(c, lang)) ? '' : 'none'}">♥</span>
@@ -2555,9 +2770,7 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, 
           ${favorites.some(f => f.key === favKey(c, lang)) ? '♥ Saved in favorites' : '♥ Save to favorites'}
         </button>
         <select class="group-sel" onchange="addCardToGroup(this)">${groupOptions()}</select>
-        <button class="own-btn ${collection.some(o => o.key === favKey(c, lang)) ? 'on' : ''}" onclick="toggleOwn(this)" style="margin-top:8px">
-          ${collection.some(o => o.key === favKey(c, lang)) ? '✓ In my collection' : '+ I own this card'}
-        </button>
+        ${ownRowHtml(c, lang)}
         ${priceRows
           ? `<table class="price-table">${priceRows}</table>`
           : '<p class="subtitle">No price data for this print.</p>'}
@@ -2591,6 +2804,7 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, 
             </div>
           </div>`;
         }).join('')}
+        ${priceChartHtml(c, rates)}
         ${c.tcgplayer?.updatedAt ? `<div class="price-note">Prices updated ${c.tcgplayer.updatedAt}</div>` : ''}
       </div>
     </div>
