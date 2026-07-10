@@ -2493,7 +2493,15 @@ const LANGS = [
 const speciesCache = {};
 
 async function localName(p, pokeLang) {
-  if (pokeLang === 'en') return TCG_NAME_FIX[p.name] || p.name;
+  if (pokeLang === 'en') {
+    if (TCG_NAME_FIX[p.name]) return TCG_NAME_FIX[p.name];
+    // pokemon like zygarde-50 / giratina-altered: cards use the plain species name
+    if (p.name.includes('-')) {
+      const sp = await getSpecies(p.id);
+      if (sp?.name) return sp.name;
+    }
+    return p.name;
+  }
   const species = await getSpecies(p.id);
   if (!species) return p.name;
   const names = species.names;
