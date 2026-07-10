@@ -188,6 +188,46 @@
   }
   body.games-view #games { display: grid; }
   body.games-view #grid, body.games-view #cards, body.games-view #favs, body.games-view #groups { display: none; }
+
+  /* my collection view */
+  #coll {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  body.coll-view #coll { display: grid; }
+  body.coll-view #grid, body.coll-view #cards, body.coll-view #favs,
+  body.coll-view #groups, body.coll-view #games { display: none; }
+  body.size-small #coll { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  body.size-big #coll { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  .coll-head {
+    grid-column: 1 / -1;
+    text-align: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .coll-head .coll-value { font-size: 34px; font-weight: 800; color: #188038; }
+  .coll-head .coll-sub { color: #888; font-size: 13.5px; margin-top: 4px; }
+  .card-price { font-size: 12.5px; font-weight: 700; color: #188038; margin-top: 4px; }
+  .own-btn {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1.5px solid #188038;
+    border-radius: 10px;
+    background: #fff;
+    color: #188038;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .own-btn.on { background: #188038; color: #fff; }
   .console-row {
     grid-column: 1 / -1;
     display: flex;
@@ -830,6 +870,7 @@
     <button class="tab" id="tabFavs" onclick="setView('favs')">♥ Favorites</button>
     <button class="tab" id="tabGroups" onclick="setView('groups')">Groups</button>
     <button class="tab" id="tabGames" onclick="setView('games')">Games</button>
+    <button class="tab" id="tabColl" onclick="setView('coll')">My Collection</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
   <select id="typeFilter">
@@ -862,6 +903,7 @@
 <div id="favs"></div>
 <div id="groups"></div>
 <div id="games"></div>
+<div id="coll"></div>
 
 <div id="modal">
   <div class="detail">
@@ -1075,14 +1117,85 @@ function setView(view) {
   document.body.classList.toggle('favs-view', view === 'favs');
   document.body.classList.toggle('groups-view', view === 'groups');
   document.body.classList.toggle('games-view', view === 'games');
+  document.body.classList.toggle('coll-view', view === 'coll');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
   document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
   document.getElementById('tabGroups').classList.toggle('active', view === 'groups');
   document.getElementById('tabGames').classList.toggle('active', view === 'games');
+  document.getElementById('tabColl').classList.toggle('active', view === 'coll');
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
   if (view === 'games') renderGames();
+  if (view === 'coll') renderCollection();
+}
+
+/* ---- my collection: cards you own, with live total value ---- */
+let collection = [];
+try { collection = JSON.parse(localStorage.getItem('pokedex-collection') || '[]'); } catch (e) {}
+function saveCollection() {
+  localStorage.setItem('pokedex-collection', JSON.stringify(collection));
+  document.getElementById('tabColl').textContent =
+    collection.length ? `My Collection (${collection.length})` : 'My Collection';
+}
+saveCollection();
+function cardValue(c, rates) {
+  // market price in the chosen currency; cardmarket trend first, else tcgplayer
+  if (!rates || !rates[curCode]) return null;
+  const eur = c.cardmarket?.prices?.trendPrice;
+  if (eur != null && rates.EUR) return eur * rates[curCode] / rates.EUR;
+  if (c.tcgplayer?.prices) {
+    for (const pr of Object.values(c.tcgplayer.prices)) {
+      if (pr.market != null) return pr.market * rates[curCode]; // rates are USD-based
+    }
+  }
+  return null;
+}
+function curFmt(v) {
+  const dec = curCode === 'JPY' ? 0 : 2;
+  return v.toFixed(dec).replace('.', ',') + ' ' + CURRENCIES[curCode];
+}
+function toggleOwn(btn) {
+  if (!curBuyCard || !lastBuy) return;
+  const key = favKey(curBuyCard, lastBuy.lang);
+  const i = collection.findIndex(o => o.key === key);
+  if (i >= 0) collection.splice(i, 1);
+  else collection.push({ key, card: curBuyCard, pokeName: lastBuy.pokeName, pokeId: lastBuy.pokeId, lang: lastBuy.lang });
+  saveCollection();
+  if (btn) {
+    btn.classList.toggle('on', i < 0);
+    btn.textContent = i < 0 ? '✓ In my collection' : '+ I own this card';
+  }
+}
+async function renderCollection() {
+  const el = document.getElementById('coll');
+  const rates = await getRates();
+  if (!document.body.classList.contains('coll-view')) return;
+  let total = 0, priced = 0;
+  const cardsHtml = collection.map((o, i) => {
+    const v = cardValue(o.card, rates);
+    if (v != null) { total += v; priced++; }
+    return `
+    <div class="tcg-card">
+      <button class="fav-btn on" onclick="collection.splice(${i},1); saveCollection(); renderCollection();">✕</button>
+      <div class="tcg-imgwrap${isHolo(o.card.rarity) ? ' holo' : ''}">
+        <img loading="lazy" src="${o.card.images.small}" alt="${esc(o.card.name)}"
+             onclick="openBuyCard('${o.pokeName}', -1, ${o.pokeId}, '${o.lang}', null, collection[${i}].card)">
+        <div class="shine"></div>
+      </div>
+      <div class="setname">
+        <b>${esc(o.card.set.name)}</b><br>
+        ${o.card.number}${o.card.set.printedTotal ? '/' + o.card.set.printedTotal : ''}
+        <div class="card-price">${v != null ? curFmt(v) : 'no price data'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="coll-head">
+      <div class="coll-value">${rates ? curFmt(total) : '—'}</div>
+      <div class="coll-sub">${collection.length} ${collection.length === 1 ? 'card' : 'cards'} in your collection${priced < collection.length ? ` · ${collection.length - priced} without price data` : ''} · market prices update daily</div>
+    </div>
+    ${cardsHtml || '<div class="tcg-status" style="grid-column: 1 / -1">No cards yet — open a card\'s buy page and press "+ I own this card".</div>'}`;
 }
 
 /* ---- games tab: every main pokemon game, pick console, buy links ---- */
@@ -2225,6 +2338,8 @@ curSel.addEventListener('change', () => {
   if (lastBuy && document.getElementById('modal').classList.contains('open')) {
     openBuyCard(lastBuy.pokeName, lastBuy.index, lastBuy.pokeId, lastBuy.lang, lastBuy.favIdx, lastBuy.cardObj);
   }
+  // collection value shown in new currency too
+  if (document.body.classList.contains('coll-view')) renderCollection();
 });
 
 /* card size choice, remembered between visits */
@@ -2314,6 +2429,9 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, 
           ${favorites.some(f => f.key === favKey(c, lang)) ? '♥ Saved in favorites' : '♥ Save to favorites'}
         </button>
         <select class="group-sel" onchange="addCardToGroup(this)">${groupOptions()}</select>
+        <button class="own-btn ${collection.some(o => o.key === favKey(c, lang)) ? 'on' : ''}" onclick="toggleOwn(this)" style="margin-top:8px">
+          ${collection.some(o => o.key === favKey(c, lang)) ? '✓ In my collection' : '+ I own this card'}
+        </button>
         ${priceRows
           ? `<table class="price-table">${priceRows}</table>`
           : '<p class="subtitle">No price data for this print.</p>'}
