@@ -203,7 +203,16 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    position: relative;
   }
+  .game-card .gmascot {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 56px;
+    height: 56px;
+    image-rendering: pixelated;
+  }
+  .game-card .gname { padding-right: 56px; }
   .game-card .gname { font-weight: 700; font-size: 16px; }
   .game-card .gmeta { color: #888; font-size: 12.5px; }
   .console-chip {
@@ -1077,29 +1086,30 @@ function setView(view) {
 }
 
 /* ---- games tab: every main pokemon game, pick console, buy links ---- */
+// mascot = the pokemon from the game's box cover
 const POKE_GAMES = [
-  { name: 'Red / Blue', console: 'Game Boy', year: 1996 },
-  { name: 'Yellow', console: 'Game Boy', year: 1998 },
-  { name: 'Gold / Silver', console: 'Game Boy Color', year: 1999 },
-  { name: 'Crystal', console: 'Game Boy Color', year: 2000 },
-  { name: 'Ruby / Sapphire', console: 'Game Boy Advance', year: 2002 },
-  { name: 'FireRed / LeafGreen', console: 'Game Boy Advance', year: 2004 },
-  { name: 'Emerald', console: 'Game Boy Advance', year: 2004 },
-  { name: 'Diamond / Pearl', console: 'Nintendo DS', year: 2006 },
-  { name: 'Platinum', console: 'Nintendo DS', year: 2008 },
-  { name: 'HeartGold / SoulSilver', console: 'Nintendo DS', year: 2009 },
-  { name: 'Black / White', console: 'Nintendo DS', year: 2010 },
-  { name: 'Black 2 / White 2', console: 'Nintendo DS', year: 2012 },
-  { name: 'X / Y', console: 'Nintendo 3DS', year: 2013 },
-  { name: 'Omega Ruby / Alpha Sapphire', console: 'Nintendo 3DS', year: 2014 },
-  { name: 'Sun / Moon', console: 'Nintendo 3DS', year: 2016 },
-  { name: 'Ultra Sun / Ultra Moon', console: 'Nintendo 3DS', year: 2017 },
-  { name: "Let's Go Pikachu / Eevee", console: 'Nintendo Switch', year: 2018 },
-  { name: 'Sword / Shield', console: 'Nintendo Switch', year: 2019 },
-  { name: 'Brilliant Diamond / Shining Pearl', console: 'Nintendo Switch', year: 2021 },
-  { name: 'Legends Arceus', console: 'Nintendo Switch', year: 2022 },
-  { name: 'Scarlet / Violet', console: 'Nintendo Switch', year: 2022 },
-  { name: 'Legends Z-A', console: 'Nintendo Switch', year: 2025 }
+  { name: 'Red / Blue', console: 'Game Boy', year: 1996, mascot: 6 },
+  { name: 'Yellow', console: 'Game Boy', year: 1998, mascot: 25 },
+  { name: 'Gold / Silver', console: 'Game Boy Color', year: 1999, mascot: 250 },
+  { name: 'Crystal', console: 'Game Boy Color', year: 2000, mascot: 245 },
+  { name: 'Ruby / Sapphire', console: 'Game Boy Advance', year: 2002, mascot: 383 },
+  { name: 'FireRed / LeafGreen', console: 'Game Boy Advance', year: 2004, mascot: 6 },
+  { name: 'Emerald', console: 'Game Boy Advance', year: 2004, mascot: 384 },
+  { name: 'Diamond / Pearl', console: 'Nintendo DS', year: 2006, mascot: 483 },
+  { name: 'Platinum', console: 'Nintendo DS', year: 2008, mascot: 487 },
+  { name: 'HeartGold / SoulSilver', console: 'Nintendo DS', year: 2009, mascot: 249 },
+  { name: 'Black / White', console: 'Nintendo DS', year: 2010, mascot: 643 },
+  { name: 'Black 2 / White 2', console: 'Nintendo DS', year: 2012, mascot: 646 },
+  { name: 'X / Y', console: 'Nintendo 3DS', year: 2013, mascot: 716 },
+  { name: 'Omega Ruby / Alpha Sapphire', console: 'Nintendo 3DS', year: 2014, mascot: 382 },
+  { name: 'Sun / Moon', console: 'Nintendo 3DS', year: 2016, mascot: 791 },
+  { name: 'Ultra Sun / Ultra Moon', console: 'Nintendo 3DS', year: 2017, mascot: 800 },
+  { name: "Let's Go Pikachu / Eevee", console: 'Nintendo Switch', year: 2018, mascot: 25 },
+  { name: 'Sword / Shield', console: 'Nintendo Switch', year: 2019, mascot: 888 },
+  { name: 'Brilliant Diamond / Shining Pearl', console: 'Nintendo Switch', year: 2021, mascot: 483 },
+  { name: 'Legends Arceus', console: 'Nintendo Switch', year: 2022, mascot: 493 },
+  { name: 'Scarlet / Violet', console: 'Nintendo Switch', year: 2022, mascot: 1007 },
+  { name: 'Legends Z-A', console: 'Nintendo Switch', year: 2025, mascot: 718 }
 ];
 let consoleFilter = '';
 function renderGames() {
@@ -1116,6 +1126,8 @@ function renderGames() {
       const isSwitch = g.console === 'Nintendo Switch';
       return `
       <div class="game-card">
+        <img class="gmascot" loading="lazy"
+             src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${g.mascot}.png" alt="">
         <div class="gname">Pokémon ${g.name}</div>
         <span class="console-chip">${g.console}</span>
         <div class="gmeta">${g.year}${isSwitch ? ' · new in shops' : ' · only used (production stopped)'}</div>
