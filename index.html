@@ -571,6 +571,8 @@
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .game-tile:hover { border-color: var(--red); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+  .game-tile.wild { background: #e6f4ea; border-color: #cde9d6; color: #188038; font-weight: 600; }
+  .game-tile.wild:hover { border-color: #188038; }
   .game-tile img {
     width: 56px !important;
     height: 56px !important;
@@ -1727,8 +1729,6 @@ async function fillDexData(p) {
   // games where it can actually be caught in the wild
   const catchGames = [...new Set((Array.isArray(encounters) ? encounters : [])
     .flatMap(e => e.version_details.map(v => v.version.name)))];
-  const gameChip = (v, cls) =>
-    `<span class="move-chip ${cls} clickable" onclick="openGameGuide(${p.id}, '${v}')">${prettyGame(v)}</span>`;
 
   // combine both types' damage relations into one multiplier per attack type
   const mult = {};
@@ -1768,9 +1768,14 @@ async function fillDexData(p) {
         </div>`).join('') || '—'}
     </div>
     <div class="dex-title">Catch it in the wild in (${catchGames.length})</div>
-    <div class="move-chips">
-      ${catchGames.map(g => gameChip(g, 'start')).join('')
-        || '<span class="move-chip">Not in the wild — get it by evolving, trading or events</span>'}
+    <div class="game-list">
+      ${catchGames.map(v => `
+        <div class="game-tile wild" onclick="openGameGuide(${p.id}, '${v}')">
+          <img loading="lazy" src="${gameSprite(p.id, v) || p.sprites.front_default || ''}"
+               onerror="this.src='${p.sprites.front_default || ''}'" alt="">
+          <div>${prettyGame(v)}</div>
+        </div>`).join('')
+        || '<span class="move-chip" style="grid-column: 1 / -1">Not in the wild — get it by evolving, trading or events</span>'}
     </div>
     <div class="dex-title">Weak against</div>
     <div class="types" style="justify-content:flex-start">${chips(weak)}</div>
