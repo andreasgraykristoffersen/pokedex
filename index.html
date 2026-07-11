@@ -29,6 +29,7 @@
     padding: 16px 24px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 16px;
     position: sticky;
     top: 0;
@@ -216,6 +217,50 @@
   body.trainers-view #groups, body.trainers-view #games, body.trainers-view #coll { display: none; }
   body.size-small #trainers { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   body.size-big #trainers { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+
+  /* quiz view */
+  #quiz { display: none; padding: 24px; max-width: 640px; margin: 0 auto; }
+  body.quiz-view #quiz { display: block; }
+  body.quiz-view #grid, body.quiz-view #cards, body.quiz-view #favs,
+  body.quiz-view #groups, body.quiz-view #games, body.quiz-view #coll, body.quiz-view #trainers { display: none; }
+  .quiz-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .quiz-score { color: #888; font-size: 13.5px; margin: 6px 0 10px; }
+  .quiz-img { width: 280px; height: 280px; object-fit: contain; transition: filter 0.3s; }
+  .quiz-img.shadow { filter: brightness(0); }
+  .quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .quiz-opt {
+    padding: 13px;
+    border: 1.5px solid #ccc;
+    border-radius: 10px;
+    background: #fff;
+    font-weight: 600;
+    font-size: 14.5px;
+    cursor: pointer;
+    text-transform: capitalize;
+  }
+  .quiz-opt:hover { border-color: var(--red); }
+  .quiz-opt.good { background: #188038; color: #fff; border-color: #188038; }
+  .quiz-opt.bad { opacity: 0.45; }
+  .quiz-result { font-weight: 700; margin-top: 12px; font-size: 16px; text-transform: capitalize; }
+  .quiz-result.right { color: #188038; }
+  .quiz-result.wrong { color: #c0392b; }
+  .cry-btn {
+    border: none;
+    background: #f1f3f5;
+    border-radius: 50%;
+    width: 34px; height: 34px;
+    font-size: 16px;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+  .cry-btn:hover { background: #e3e6e8; }
   .trainer-top {
     grid-column: 1 / -1;
     display: flex;
@@ -955,6 +1000,7 @@
     <button class="tab" id="tabGames" onclick="setView('games')">Games</button>
     <button class="tab" id="tabTrainers" onclick="setView('trainers')">Items & Trainers</button>
     <button class="tab" id="tabColl" onclick="setView('coll')">My Collection</button>
+    <button class="tab" id="tabQuiz" onclick="setView('quiz')">Quiz</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
   <select id="typeFilter">
@@ -962,6 +1008,13 @@
   </select>
   <select id="genFilter">
     <option value="">All gens / games</option>
+  </select>
+  <select id="sortSel">
+    <option value="">Sort: Number</option>
+    <option value="name">Sort: Name</option>
+    <option value="strong">Sort: Strongest</option>
+    <option value="fast">Sort: Fastest</option>
+    <option value="heavy">Sort: Heaviest</option>
   </select>
   <select id="caughtFilter">
     <option value="">Caught + not caught</option>
@@ -995,6 +1048,7 @@
 <div id="games"></div>
 <div id="coll"></div>
 <div id="trainers"></div>
+<div id="quiz"></div>
 
 <div id="modal">
   <div class="detail">
@@ -1130,8 +1184,21 @@ function currentList() {
     const matchG = !gen || (p.id >= gen.from && p.id <= gen.to);
     const matchC = !cf || (cf === 'caught') === caught.includes(p.id);
     return matchQ && matchT && matchG && matchC;
-  });
+  }).sort(sortFn());
 }
+
+// pokedex sorting picked in the header
+function sortFn() {
+  const s = document.getElementById('sortSel').value;
+  const stat = (p, n) => p.stats.find(x => x.stat.name === n)?.base_stat || 0;
+  const total = p => p.stats.reduce((sum, x) => sum + x.base_stat, 0);
+  if (s === 'name') return (a, b) => displayName(a).localeCompare(displayName(b));
+  if (s === 'strong') return (a, b) => total(b) - total(a);
+  if (s === 'fast') return (a, b) => stat(b, 'speed') - stat(a, 'speed');
+  if (s === 'heavy') return (a, b) => b.weight - a.weight;
+  return (a, b) => a.id - b.id;
+}
+document.getElementById('sortSel').addEventListener('change', render);
 
 function render() {
   const list = currentList();
@@ -1233,6 +1300,7 @@ function setView(view) {
   document.body.classList.toggle('games-view', view === 'games');
   document.body.classList.toggle('coll-view', view === 'coll');
   document.body.classList.toggle('trainers-view', view === 'trainers');
+  document.body.classList.toggle('quiz-view', view === 'quiz');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
   document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
@@ -1240,6 +1308,8 @@ function setView(view) {
   document.getElementById('tabGames').classList.toggle('active', view === 'games');
   document.getElementById('tabColl').classList.toggle('active', view === 'coll');
   document.getElementById('tabTrainers').classList.toggle('active', view === 'trainers');
+  document.getElementById('tabQuiz').classList.toggle('active', view === 'quiz');
+  if (view === 'quiz') renderQuiz();
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
   if (view === 'games') renderGames();
@@ -1316,6 +1386,100 @@ function renderTrainers(keepInput) {
 function openTrainerCard(i) {
   const c = trainerList[i];
   openBuyCard(c.name, -1, 0, 'en', null, c);
+}
+
+/* ---- pokemon cries: real sound from the games ---- */
+function playCry(id) {
+  new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${id}.ogg`)
+    .play().catch(() => {});
+}
+
+/* ---- who's that pokemon? quiz ---- */
+const quiz = {
+  score: 0, streak: 0, revealed: false, answer: null, options: [],
+  best: +(localStorage.getItem('pokedex-quiz-best') || 0)
+};
+function newQuizRound() {
+  const pick = () => allPokemon[Math.floor(Math.random() * allPokemon.length)];
+  const answer = pick();
+  const opts = new Set([answer]);
+  while (opts.size < 4) opts.add(pick());
+  quiz.answer = answer;
+  quiz.options = [...opts].sort(() => Math.random() - 0.5);
+  quiz.revealed = false;
+  renderQuiz();
+}
+function quizGuess(id) {
+  if (quiz.revealed) return;
+  quiz.revealed = true;
+  const right = id === quiz.answer.id;
+  if (right) {
+    quiz.score++;
+    quiz.streak++;
+    if (quiz.streak > quiz.best) {
+      quiz.best = quiz.streak;
+      localStorage.setItem('pokedex-quiz-best', quiz.best);
+    }
+  } else {
+    quiz.streak = 0;
+  }
+  playCry(quiz.answer.id);
+  renderQuiz(right ? 'right' : 'wrong');
+}
+function renderQuiz(result) {
+  const el = document.getElementById('quiz');
+  if (allPokemon.length < 100) {
+    el.innerHTML = '<div class="tcg-status">Pokémon still loading — try again in a moment...</div>';
+    return;
+  }
+  if (!quiz.answer) { newQuizRound(); return; }
+  const art = quiz.answer.sprites.other['official-artwork']?.front_default || quiz.answer.sprites.front_default;
+  el.innerHTML = `
+    <div class="quiz-box">
+      <h2>Who's that Pokémon?</h2>
+      <div class="quiz-score">Score ${quiz.score} · Streak ${quiz.streak} · Best streak ${quiz.best}</div>
+      <img class="quiz-img ${quiz.revealed ? '' : 'shadow'}" src="${art}" alt="?">
+      ${result ? `<div class="quiz-result ${result}">${result === 'right' ? "Right! It's " : 'Wrong — it was '}${displayName(quiz.answer)}!</div>` : ''}
+      <div class="quiz-opts">
+        ${quiz.options.map(o => `
+          <button class="quiz-opt ${quiz.revealed ? (o.id === quiz.answer.id ? 'good' : 'bad') : ''}"
+                  onclick="quizGuess(${o.id})">${displayName(o)}</button>`).join('')}
+      </div>
+      ${quiz.revealed ? '<button class="moves-btn" style="max-width:300px; margin:16px auto 0" onclick="newQuizRound()">Next Pokémon →</button>' : ''}
+    </div>`;
+}
+
+/* ---- backup: save and load everything you own and saved ---- */
+function exportBackup() {
+  const data = { v: 1, collection, favorites, favMon, favMega, caught, groups };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pokedex-backup.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importBackup(inp) {
+  const f = inp.files[0];
+  inp.value = '';
+  if (!f) return;
+  f.text().then(t => {
+    try {
+      const d = JSON.parse(t);
+      if (d.collection) { collection.length = 0; collection.push(...d.collection); collection.forEach(o => { if (!o.qty) o.qty = 1; }); }
+      if (d.favorites) { favorites.length = 0; favorites.push(...d.favorites); }
+      if (d.favMon) { favMon.length = 0; favMon.push(...d.favMon); }
+      if (d.favMega) { favMega.length = 0; favMega.push(...d.favMega); }
+      if (d.caught) { caught.length = 0; caught.push(...d.caught); }
+      if (d.groups) { groups.length = 0; groups.push(...d.groups); }
+      saveCollection(); saveFavs(); saveFavMon(); saveFavMega(); saveCaught(); saveGroups();
+      render();
+      renderCollection();
+      alert('Backup loaded — everything is back!');
+    } catch (e) {
+      alert('Could not read that file — is it a pokedex backup?');
+    }
+  });
 }
 
 /* ---- my collection: cards you own, with live total value ---- */
@@ -1412,6 +1576,12 @@ async function renderCollection() {
     <div class="coll-head">
       <div class="coll-value">${rates ? curFmt(total) : '—'}</div>
       <div class="coll-sub">${n} ${n === 1 ? 'card' : 'cards'} in your collection${unpriced ? ` · ${unpriced} without price data` : ''} · market prices update daily</div>
+      <div style="margin-top:10px">
+        <button class="lang-btn" onclick="exportBackup()">⬇ Save backup</button>
+        <button class="lang-btn" onclick="document.getElementById('backupFile').click()">⬆ Load backup</button>
+        <input type="file" id="backupFile" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+      </div>
+      <div class="price-note">Backup saves collection, favorites, caught and groups — move it to another device and load it there.</div>
     </div>
     ${cardsHtml || '<div class="tcg-status" style="grid-column: 1 / -1">No cards yet — open a card\'s buy page and press "+ I own this card".</div>'}`;
 }
@@ -1596,6 +1766,20 @@ function toggleFavGallery(pokeName, index, pokeId, lang, btn, ev) {
   const c = (tcgCache[`${pokeName}:${lang}`] || [])[index];
   if (!c) return;
   btn.classList.toggle('on', toggleFavCard(c, pokeName, pokeId, lang));
+}
+
+/* gallery sorting: clicks go through the sorted view, not the raw cache */
+let gallerySort = 'old';
+let curGallery = null;
+function openGalleryCard(i) {
+  if (!curGallery) return;
+  openBuyCard(curGallery.pokeName, -1, curGallery.pokeId, curGallery.lang, null, curGallery.cards[i]);
+}
+function toggleFavGalleryV(i, btn, ev) {
+  ev.stopPropagation();
+  if (!curGallery) return;
+  btn.classList.toggle('on',
+    toggleFavCard(curGallery.cards[i], curGallery.pokeName, curGallery.pokeId, curGallery.lang));
 }
 
 let favMode = 'cards'; // what the favorites tab shows: 'cards' or 'pokemon'
@@ -2016,7 +2200,7 @@ async function openDetail(id, formName = null) {
   body.innerHTML = `
     <img src="${!formName && shinyMode ? artUrl(p) : (p.sprites.other['official-artwork']?.front_default || p.sprites.front_default)}"
          onerror="this.src='${p.sprites.front_default || ''}'" alt="${p.name}">
-    <h2>${displayName(base)}${formLabel ? ' — ' + formLabel : ''}${!formName && shinyMode ? ' ✨' : ''}</h2>
+    <h2>${displayName(base)}${formLabel ? ' — ' + formLabel : ''}${!formName && shinyMode ? ' ✨' : ''}<button class="cry-btn" title="hear its cry" onclick="playCry(${id})">🔊</button></h2>
     <div class="num">#${String(id).padStart(3, '0')}</div>
     <button class="fav-save ${favMon.includes(id) ? 'on' : ''}" onclick="monFavBtn(${id}, this, event)">
       ${favMon.includes(id) ? '♥ Saved as favorite' : '♥ Save as favorite'}
@@ -2525,6 +2709,7 @@ async function openCardGallery(id, lang = 'en') {
       ${LANGS.map(l => `<button class="lang-btn ${l.code === lang ? 'active' : ''}"
         onclick="openCardGallery(${id}, '${l.code}')">${l.label}</button>`).join('')}
     </div>
+    <div class="langs gallery-sort"></div>
     <div class="tcg-status">Loading real cards...</div>
     <div class="tcg-grid"></div>
   `;
@@ -2565,22 +2750,39 @@ async function openCardGallery(id, lang = 'en') {
     // user may have closed or switched gallery/language while fetching
     if (detail.dataset.gallery !== galleryKey) return;
 
-    const cards = tcgCache[cacheKey];
     const status = body.querySelector('.tcg-status');
-    if (!cards.length) {
+    if (!tcgCache[cacheKey].length) {
       status.textContent = 'No cards found in this language.';
       return;
     }
     status.remove();
+    // sort choice: cache order is oldest first
+    const cards = tcgCache[cacheKey].slice();
+    const priceOf = c => {
+      const eur = c.cardmarket?.prices?.trendPrice;
+      if (eur != null) return eur;
+      if (c.tcgplayer?.prices) {
+        for (const pr of Object.values(c.tcgplayer.prices)) if (pr.market != null) return pr.market * 0.92;
+      }
+      return -1; // unknown price sorts last
+    };
+    if (gallerySort === 'new') cards.reverse();
+    else if (gallerySort === 'exp') cards.sort((a, b) => priceOf(b) - priceOf(a));
+    else if (gallerySort === 'cheap') cards.sort((a, b) => { const A = priceOf(a), B = priceOf(b); return ((A < 0) - (B < 0)) || A - B; });
+    curGallery = { cards, pokeName: p.name, pokeId: id, lang };
     body.querySelector('.gallery-sub').textContent =
       `#${String(p.id).padStart(3, '0')} · ${cards.length} cards printed`;
+    body.querySelector('.gallery-sort').innerHTML = [
+      ['old', 'Oldest first'], ['new', 'Newest first'], ['exp', 'Most expensive'], ['cheap', 'Cheapest']
+    ].map(([v, l]) => `<button class="lang-btn ${gallerySort === v ? 'active' : ''}"
+        onclick="gallerySort='${v}'; openCardGallery(${id}, '${lang}')">${l}</button>`).join('');
     body.querySelector('.tcg-grid').innerHTML = cards.map((c, i) => `
       <div class="tcg-card">
         <button class="fav-btn ${favorites.some(f => f.key === favKey(c, lang)) ? 'on' : ''}"
-                onclick="toggleFavGallery('${p.name}', ${i}, ${id}, '${lang}', this, event)">♥</button>
+                onclick="toggleFavGalleryV(${i}, this, event)">♥</button>
         <div class="tcg-imgwrap${isHolo(c.rarity) ? ' holo' : ''}">
           <img loading="lazy" src="${c.images.small}" alt="${c.name}"
-               onclick="openBuyCard('${p.name}', ${i}, ${id}, '${lang}')">
+               onclick="openGalleryCard(${i})">
           <div class="shine"></div>
         </div>
         <div class="setname">
