@@ -315,6 +315,16 @@
   }
   .pchart { margin-top: 14px; }
   .pchart svg { width: 100%; height: auto; display: block; }
+  .scan-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .scan-row img {
+    width: 110px;
+    height: auto;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.12s;
+  }
+  .scan-row img:hover { transform: scale(1.06); }
+  .scan-row img.scan-added { outline: 4px solid #188038; }
   body.size-small #coll { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   body.size-big #coll { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
   .coll-head {
@@ -1489,6 +1499,102 @@ function importBackup(inp) {
   });
 }
 
+/* ---- binder scanner: photo of a 3x3 binder page -> reads the card names
+   with free OCR, then you tap the exact print of each to add it ---- */
+let tessReady = null;
+function loadTesseract() {
+  if (!tessReady) {
+    tessReady = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  return tessReady;
+}
+function matchPokemonName(text) {
+  const t = text.toLowerCase().replace(/[^a-z]/g, '');
+  let best = null;
+  for (const p of allPokemon) {
+    const n = p.name.split('-')[0].replace(/[^a-z]/g, '');
+    if (n.length >= 4 && t.includes(n) && (!best || n.length > best.length)) best = n;
+  }
+  return best;
+}
+const scanCandidates = {};
+async function scanBinder(inp) {
+  const file = inp.files[0];
+  inp.value = '';
+  if (!file) return;
+  const body = document.getElementById('detailBody');
+  document.querySelector('.detail').classList.add('wide');
+  body.innerHTML = `
+    <h2>Scanning binder page</h2>
+    <p class="subtitle" style="text-align:center">Photo straight from above, good light, 9 cards (3×3) works best.</p>
+    <div class="tcg-status" id="scanStatus">Loading card reader...</div>
+    <div id="scanResults"></div>`;
+  document.getElementById('modal').classList.add('open');
+  const status = t => { const el = document.getElementById('scanStatus'); if (el) el.textContent = t; };
+  try {
+    await loadTesseract();
+    const bmp = await createImageBitmap(file);
+    const worker = await Tesseract.createWorker('eng');
+    const names = [];
+    const cols = 3, rows = 3;
+    const cw = bmp.width / cols, ch = bmp.height / rows;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        status(`Reading card ${r * cols + c + 1} of 9...`);
+        const sh = ch * 0.3; // name lives in the top strip of each card
+        canvas.width = cw * 2;
+        canvas.height = sh * 2;
+        ctx.drawImage(bmp, c * cw, r * ch, cw, sh, 0, 0, cw * 2, sh * 2);
+        const { data } = await worker.recognize(canvas);
+        const guess = matchPokemonName(data.text || '');
+        if (guess && !names.includes(guess)) names.push(guess);
+      }
+    }
+    await worker.terminate();
+    if (!names.length) {
+      status('Could not read any card names — try a sharper photo, straight from above, no glare.');
+      return;
+    }
+    status(`Found ${names.length}: ${names.join(', ')}. Tap the exact print of each card to add it:`);
+    const resEl = document.getElementById('scanResults');
+    for (const n of names) {
+      const div = document.createElement('div');
+      div.innerHTML = `<div class="dex-title" style="text-transform:capitalize">${n}</div><div class="tcg-status">Loading prints...</div>`;
+      resEl.appendChild(div);
+      try {
+        const json = await fetchWithRetry(
+          `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(n)}"&orderBy=-set.releaseDate&pageSize=12`);
+        const cards = json.data || [];
+        scanCandidates[n] = cards;
+        div.querySelector('.tcg-status').outerHTML = cards.length
+          ? `<div class="scan-row">${cards.map((c, i) =>
+              `<img loading="lazy" src="${c.images.small}" title="${esc(c.set.name)} ${c.number}" onclick="scanAdd('${n}', ${i}, this)">`).join('')}</div>`
+          : '<div class="tcg-status">No cards found for this name.</div>';
+      } catch (e) {
+        div.querySelector('.tcg-status').textContent = 'Could not load prints — try again.';
+      }
+    }
+  } catch (e) {
+    status('Scanner could not start — check internet and try again.');
+  }
+}
+function scanAdd(name, i, imgEl) {
+  const c = scanCandidates[name][i];
+  const key = favKey(c, 'en');
+  const o = collection.find(x => x.key === key);
+  if (o) o.qty++;
+  else collection.push({ key, card: c, pokeName: name, pokeId: 0, lang: 'en', qty: 1 });
+  saveCollection();
+  imgEl.classList.add('scan-added');
+}
+
 /* ---- google login + cloud sync (firebase) ----
    To turn this on: create a free Firebase project and paste its config below.
    Guide in README.md. With config = null the app works exactly as before. */
@@ -1638,7 +1744,9 @@ async function renderCollection() {
       <div style="margin-top:10px">
         <button class="lang-btn" onclick="exportBackup()">⬇ Save backup</button>
         <button class="lang-btn" onclick="document.getElementById('backupFile').click()">⬆ Load backup</button>
+        <button class="lang-btn" onclick="document.getElementById('binderPic').click()">📷 Scan binder page</button>
         <input type="file" id="backupFile" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+        <input type="file" id="binderPic" accept="image/*" capture="environment" style="display:none" onchange="scanBinder(this)">
       </div>
       <div class="price-note">Backup saves collection, favorites, caught and groups — move it to another device and load it there.</div>
     </div>
