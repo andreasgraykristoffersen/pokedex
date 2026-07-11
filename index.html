@@ -1071,7 +1071,7 @@
 
 <script>
 const API = 'https://pokeapi.co/api/v2';
-const TOTAL_COUNT = 1025; // all pokemon, gen 1-9
+let TOTAL_COUNT = 1025; // fallback; real count asked from the database at start
 let allPokemon = [];
 
 const ALL_TYPES = ['normal','fire','water','electric','grass','ice','fighting','poison',
@@ -1157,6 +1157,11 @@ document.getElementById('nameLang').addEventListener('change', async e => {
 });
 
 async function load() {
+  // ask the database how many pokemon exist — new generations appear by themselves
+  try {
+    const j = await fetch(`${API}/pokemon-species?limit=1`).then(r => r.json());
+    if (j.count > TOTAL_COUNT) TOTAL_COUNT = j.count;
+  } catch (e) { /* fallback count is fine */ }
   const ids = Array.from({length: TOTAL_COUNT}, (_, i) => i + 1);
   // fetch in chunks to be kind to the API
   const chunkSize = 50;
