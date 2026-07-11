@@ -1001,6 +1001,7 @@
     <button class="tab" id="tabTrainers" onclick="setView('trainers')">Items & Trainers</button>
     <button class="tab" id="tabColl" onclick="setView('coll')">My Collection</button>
     <button class="tab" id="tabQuiz" onclick="setView('quiz')">Quiz</button>
+    <button class="tab" id="loginBtn" style="display:none" onclick="loginClick()">Sign in with Google</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
   <select id="typeFilter">
@@ -1459,28 +1460,85 @@ function exportBackup() {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+let applyingBackup = false; // stops cloud push while pulling cloud data in
+function applyBackup(d) {
+  applyingBackup = true;
+  if (d.collection) { collection.length = 0; collection.push(...d.collection); collection.forEach(o => { if (!o.qty) o.qty = 1; }); }
+  if (d.favorites) { favorites.length = 0; favorites.push(...d.favorites); }
+  if (d.favMon) { favMon.length = 0; favMon.push(...d.favMon); }
+  if (d.favMega) { favMega.length = 0; favMega.push(...d.favMega); }
+  if (d.caught) { caught.length = 0; caught.push(...d.caught); }
+  if (d.groups) { groups.length = 0; groups.push(...d.groups); }
+  saveCollection(); saveFavs(); saveFavMon(); saveFavMega(); saveCaught(); saveGroups();
+  applyingBackup = false;
+  render();
+  if (document.body.classList.contains('coll-view')) renderCollection();
+}
 function importBackup(inp) {
   const f = inp.files[0];
   inp.value = '';
   if (!f) return;
   f.text().then(t => {
     try {
-      const d = JSON.parse(t);
-      if (d.collection) { collection.length = 0; collection.push(...d.collection); collection.forEach(o => { if (!o.qty) o.qty = 1; }); }
-      if (d.favorites) { favorites.length = 0; favorites.push(...d.favorites); }
-      if (d.favMon) { favMon.length = 0; favMon.push(...d.favMon); }
-      if (d.favMega) { favMega.length = 0; favMega.push(...d.favMega); }
-      if (d.caught) { caught.length = 0; caught.push(...d.caught); }
-      if (d.groups) { groups.length = 0; groups.push(...d.groups); }
-      saveCollection(); saveFavs(); saveFavMon(); saveFavMega(); saveCaught(); saveGroups();
-      render();
-      renderCollection();
+      applyBackup(JSON.parse(t));
+      syncPush();
       alert('Backup loaded — everything is back!');
     } catch (e) {
       alert('Could not read that file — is it a pokedex backup?');
     }
   });
 }
+
+/* ---- google login + cloud sync (firebase) ----
+   To turn this on: create a free Firebase project and paste its config below.
+   Guide in README.md. With config = null the app works exactly as before. */
+const FIREBASE_CONFIG = null;
+
+let fbUser = null, fbDb = null;
+async function initFirebase() {
+  if (!FIREBASE_CONFIG) return;
+  const load = src => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  try {
+    await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+    await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
+    await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+  } catch (e) { return; }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  fbDb = firebase.firestore();
+  document.getElementById('loginBtn').style.display = 'block';
+  firebase.auth().onAuthStateChanged(async u => {
+    fbUser = u;
+    const b = document.getElementById('loginBtn');
+    b.textContent = u ? `👤 ${(u.displayName || 'me').split(' ')[0]} — sign out` : 'Sign in with Google';
+    if (u) {
+      try {
+        const snap = await fbDb.collection('pokedex').doc(u.uid).get();
+        if (snap.exists && snap.data().data) applyBackup(JSON.parse(snap.data().data));
+        else syncPush(); // first login: put this device's stuff in the cloud
+      } catch (e) { /* offline etc — local data still works */ }
+    }
+  });
+}
+function loginClick() {
+  if (!window.firebase) return;
+  if (fbUser) firebase.auth().signOut();
+  else firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(() => {});
+}
+let syncTimer = null;
+function syncPush() {
+  if (!fbUser || !fbDb || applyingBackup) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    fbDb.collection('pokedex').doc(fbUser.uid)
+      .set({ data: JSON.stringify({ v: 1, collection, favorites, favMon, favMega, caught, groups }) })
+      .catch(() => {});
+  }, 1500);
+}
+initFirebase();
 
 /* ---- my collection: cards you own, with live total value ---- */
 let collection = [];
@@ -1492,6 +1550,7 @@ function saveCollection() {
   const n = collCount();
   document.getElementById('tabColl').textContent =
     n ? `My Collection (${n})` : 'My Collection';
+  syncPush();
 }
 saveCollection();
 function cardValue(c, rates) {
@@ -1673,6 +1732,7 @@ function saveCaught() {
   localStorage.setItem('pokedex-caught', JSON.stringify(caught));
   document.getElementById('tabDex').textContent =
     caught.length ? `Pokédex (${caught.length}/${TOTAL_COUNT})` : 'Pokédex';
+  syncPush();
 }
 function toggleCaught(id, btn, ev) {
   if (ev) ev.stopPropagation();
@@ -1705,6 +1765,7 @@ try { favMega = JSON.parse(localStorage.getItem('pokedex-fav-mega') || '[]'); } 
 function saveFavMega() {
   localStorage.setItem('pokedex-fav-mega', JSON.stringify(favMega));
   updateFavTab();
+  syncPush();
 }
 function toggleFavMega(formName, baseId, btn) {
   const i = favMega.findIndex(m => m.formName === formName);
@@ -1730,10 +1791,12 @@ function toggleFavMega(formName, baseId, btn) {
 function saveFavs() {
   localStorage.setItem('pokedex-favs', JSON.stringify(favorites));
   updateFavTab();
+  syncPush();
 }
 function saveFavMon() {
   localStorage.setItem('pokedex-fav-pokemon', JSON.stringify(favMon));
   updateFavTab();
+  syncPush();
 }
 function toggleFavMon(id, btn, ev) {
   if (ev) ev.stopPropagation();
@@ -1847,6 +1910,7 @@ function saveGroups() {
   localStorage.setItem('pokedex-groups', JSON.stringify(groups));
   document.getElementById('tabGroups').textContent =
     groups.length ? `Groups (${groups.length})` : 'Groups';
+  syncPush();
 }
 saveGroups();
 
