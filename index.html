@@ -1513,14 +1513,49 @@ function loadTesseract() {
   }
   return tessReady;
 }
-function matchPokemonName(text) {
-  const t = text.toLowerCase().replace(/[^a-z]/g, '');
-  let best = null;
-  for (const p of allPokemon) {
-    const n = p.name.split('-')[0].replace(/[^a-z]/g, '');
-    if (n.length >= 4 && t.includes(n) && (!best || n.length > best.length)) best = n;
+// edit distance <= 1: forgives one OCR mistake in a name
+function editDist1(a, b) {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (b.length > a.length) j++;
+    else { i++; j++; }
   }
-  return best;
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+// find pokemon names among the OCR words; card titles are the big text,
+// small text (like "Evolves from Charmeleon") gets filtered away
+function matchWords(words) {
+  const names = [];
+  allPokemon.forEach(p => {
+    const n = p.name.split('-')[0].replace(/[^a-z]/g, '');
+    if (n.length >= 4 && !names.includes(n)) names.push(n);
+  });
+  const hits = [];
+  words.forEach(w => {
+    const t = (w.text || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (t.length < 4) return;
+    let match = names.includes(t) ? t : null;
+    if (!match && t.length >= 5) {
+      match = names.find(n => editDist1(t, n)) || null;
+    }
+    if (match) {
+      hits.push({
+        name: match,
+        h: w.bbox ? (w.bbox.y1 - w.bbox.y0) : 0,
+        conf: w.confidence || 0
+      });
+    }
+  });
+  if (!hits.length) return [];
+  const maxH = Math.max(...hits.map(x => x.h));
+  let keep = hits.filter(x => x.h >= maxH * 0.55 && x.conf >= 40);
+  if (!keep.length) keep = hits;
+  return [...new Set(keep.map(x => x.name))];
 }
 const scanCandidates = {};
 async function scanBinder(inp) {
@@ -1538,26 +1573,26 @@ async function scanBinder(inp) {
   const status = t => { const el = document.getElementById('scanStatus'); if (el) el.textContent = t; };
   try {
     await loadTesseract();
+    // scale photo down for speed, boost contrast for readability
     const bmp = await createImageBitmap(file);
-    const worker = await Tesseract.createWorker('eng');
-    const names = [];
-    const cols = 3, rows = 3;
-    const cw = bmp.width / cols, ch = bmp.height / rows;
+    const scale = Math.min(1, 2200 / Math.max(bmp.width, bmp.height));
     const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
     const ctx = canvas.getContext('2d');
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        status(`Reading card ${r * cols + c + 1} of 9...`);
-        const sh = ch * 0.3; // name lives in the top strip of each card
-        canvas.width = cw * 2;
-        canvas.height = sh * 2;
-        ctx.drawImage(bmp, c * cw, r * ch, cw, sh, 0, 0, cw * 2, sh * 2);
-        const { data } = await worker.recognize(canvas);
-        const guess = matchPokemonName(data.text || '');
-        if (guess && !names.includes(guess)) names.push(guess);
+    ctx.filter = 'grayscale(1) contrast(1.35)';
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    status('Looking at the cards... 0%');
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') status(`Looking at the cards... ${Math.round(m.progress * 100)}%`);
       }
-    }
+    });
+    // sparse mode: hunts for scattered text like card titles all over a page
+    await worker.setParameters({ tessedit_pageseg_mode: '11' });
+    const { data } = await worker.recognize(canvas);
     await worker.terminate();
+    const names = matchWords(data.words || []);
     if (!names.length) {
       status('Could not read any card names — try a sharper photo, straight from above, no glare.');
       return;
