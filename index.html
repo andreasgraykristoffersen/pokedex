@@ -325,6 +325,7 @@
   }
   .scan-row img:hover { transform: scale(1.06); }
   .scan-row img.scan-added { outline: 4px solid #188038; }
+  .scan-row img.scan-best { outline: 3px solid #f5a623; }
   body.size-small #coll { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   body.size-big #coll { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
   .coll-head {
@@ -1536,26 +1537,83 @@ function matchWords(words) {
     if (n.length >= 4 && !names.includes(n)) names.push(n);
   });
   const hits = [];
-  words.forEach(w => {
+  words.forEach((w, wi) => {
     const t = (w.text || '').toLowerCase().replace(/[^a-z]/g, '');
     if (t.length < 4) return;
     let match = names.includes(t) ? t : null;
     if (!match && t.length >= 5) {
       match = names.find(n => editDist1(t, n)) || null;
     }
-    if (match) {
-      hits.push({
-        name: match,
-        h: w.bbox ? (w.bbox.y1 - w.bbox.y0) : 0,
-        conf: w.confidence || 0
-      });
-    }
+    if (!match) return;
+    // "Evolves from Charmeleon" lines: skip names right after "from"
+    const prev = (words[wi - 1]?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (prev === 'from') return;
+    hits.push({
+      name: match,
+      h: w.bbox ? (w.bbox.y1 - w.bbox.y0) : 0,
+      conf: w.confidence || 0,
+      bbox: w.bbox || null
+    });
   });
   if (!hits.length) return [];
   const maxH = Math.max(...hits.map(x => x.h));
-  let keep = hits.filter(x => x.h >= maxH * 0.55 && x.conf >= 40);
+  // cards sit at different distances -> titles differ in size; keep gentle
+  let keep = hits.filter(x => x.h >= maxH * 0.3 && x.conf >= 40);
   if (!keep.length) keep = hits;
-  return [...new Set(keep.map(x => x.name))];
+  const byName = {};
+  keep.forEach(x => { if (!byName[x.name] || x.h > byName[x.name].h) byName[x.name] = x; });
+  return Object.values(byName); // [{name, bbox, ...}] biggest title per name
+}
+
+/* ---- visual matching: compare the photographed card against each print ---- */
+function regionDescriptor(srcCanvas, sx, sy, sw, sh) {
+  const g = 12;
+  const c = document.createElement('canvas');
+  c.width = g; c.height = g;
+  const x = c.getContext('2d');
+  x.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, g, g);
+  const d = x.getImageData(0, 0, g, g).data;
+  const v = [];
+  for (let i = 0; i < d.length; i += 4) v.push(d[i], d[i + 1], d[i + 2]);
+  // normalize away lighting and color cast
+  const mean = v.reduce((a, b) => a + b, 0) / v.length;
+  const sd = Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / v.length) || 1;
+  return v.map(a => (a - mean) / sd);
+}
+const printDescCache = {};
+function printDescriptor(url) {
+  if (!printDescCache[url]) {
+    printDescCache[url] = new Promise(res => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = im.width; c.height = im.height;
+          c.getContext('2d').drawImage(im, 0, 0);
+          // top 55% = frame + artwork, the part that tells prints apart
+          res(regionDescriptor(c, 0, 0, im.width, im.height * 0.55));
+        } catch (e) { res(null); }
+      };
+      im.onerror = () => res(null);
+      im.src = url;
+    });
+  }
+  return printDescCache[url];
+}
+function descDist(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) { const d = a[i] - b[i]; s += d * d; }
+  return s;
+}
+// guess the card rectangle around a title: name text is ~1/20 of card height
+function cardRegionFromTitle(bbox, W, H, factor) {
+  const th = bbox.y1 - bbox.y0;
+  const ch = Math.min(H * 0.95, th * factor);
+  const cw = ch * 0.72;
+  const sx = Math.max(0, bbox.x0 - cw * 0.10);
+  const sy = Math.max(0, bbox.y0 - ch * 0.06);
+  return { sx, sy, sw: Math.min(cw, W - sx), sh: Math.min(ch, H - sy) };
 }
 const scanCandidates = {};
 async function scanBinder(inp) {
@@ -1576,9 +1634,15 @@ async function scanBinder(inp) {
     // scale photo down for speed, boost contrast for readability
     const bmp = await createImageBitmap(file);
     const scale = Math.min(1, 2200 / Math.max(bmp.width, bmp.height));
+    // color canvas: used for the visual look-matching
+    const colorCanvas = document.createElement('canvas');
+    colorCanvas.width = Math.round(bmp.width * scale);
+    colorCanvas.height = Math.round(bmp.height * scale);
+    colorCanvas.getContext('2d').drawImage(bmp, 0, 0, colorCanvas.width, colorCanvas.height);
+    // gray high-contrast canvas: used for reading the names
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
+    canvas.width = colorCanvas.width;
+    canvas.height = colorCanvas.height;
     const ctx = canvas.getContext('2d');
     ctx.filter = 'grayscale(1) contrast(1.35)';
     ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
@@ -1592,30 +1656,54 @@ async function scanBinder(inp) {
     await worker.setParameters({ tessedit_pageseg_mode: '11' });
     const { data } = await worker.recognize(canvas);
     await worker.terminate();
-    const names = matchWords(data.words || []);
-    if (!names.length) {
+    const found = matchWords(data.words || []);
+    if (!found.length) {
       status('Could not read any card names — try a sharper photo, straight from above, no glare.');
       return;
     }
-    status(`Found ${names.length}: ${names.join(', ')}. Tap the exact print of each card to add it:`);
+    status(`Found ${found.length}: ${found.map(f => f.name).join(', ')}. Looking at each card to find the exact print...`);
     const resEl = document.getElementById('scanResults');
-    for (const n of names) {
+    for (const f of found) {
+      const n = f.name;
       const div = document.createElement('div');
-      div.innerHTML = `<div class="dex-title" style="text-transform:capitalize">${n}</div><div class="tcg-status">Loading prints...</div>`;
+      div.innerHTML = `<div class="dex-title" style="text-transform:capitalize">${n}</div><div class="tcg-status">Comparing prints...</div>`;
       resEl.appendChild(div);
       try {
         const json = await fetchWithRetry(
-          `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(n)}"&orderBy=-set.releaseDate&pageSize=12`);
-        const cards = json.data || [];
+          `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(n)}"&orderBy=-set.releaseDate&pageSize=250`);
+        let cards = json.data || [];
+        // look at the photographed card and rank the prints by how alike they are
+        let ranked = false;
+        if (cards.length > 1 && f.bbox) {
+          try {
+            // title box size from OCR is noisy: try several card-size guesses,
+            // each print keeps its best fit
+            const photoDescs = [8, 11, 14, 17].map(k => {
+              const r = cardRegionFromTitle(f.bbox, colorCanvas.width, colorCanvas.height, k);
+              return regionDescriptor(colorCanvas, r.sx, r.sy, r.sw, r.sh * 0.55);
+            });
+            const descs = await Promise.all(cards.map(c => printDescriptor(c.images.small)));
+            const scored = cards.map((c, i) => ({
+              c,
+              d: descs[i] ? Math.min(...photoDescs.map(pd => descDist(pd, descs[i]))) : Infinity
+            }));
+            scored.sort((a, b) => a.d - b.d);
+            cards = scored.map(s => s.c);
+            ranked = scored[0].d !== Infinity;
+          } catch (e) { /* visual match failed, keep newest-first order */ }
+        }
         scanCandidates[n] = cards;
         div.querySelector('.tcg-status').outerHTML = cards.length
-          ? `<div class="scan-row">${cards.map((c, i) =>
-              `<img loading="lazy" src="${c.images.small}" title="${esc(c.set.name)} ${c.number}" onclick="scanAdd('${n}', ${i}, this)">`).join('')}</div>`
+          ? `${ranked ? '<div class="price-note">⭐ Best look-match first — tap the right one:</div>' : ''}
+             <div class="scan-row">${cards.map((c, i) =>
+              `<img loading="lazy" src="${c.images.small}" title="${esc(c.set.name)} ${c.number}"
+                    class="${ranked && i === 0 ? 'scan-best' : ''}" onclick="scanAdd('${n}', ${i}, this)">`).join('')}</div>`
           : '<div class="tcg-status">No cards found for this name.</div>';
       } catch (e) {
         div.querySelector('.tcg-status').textContent = 'Could not load prints — try again.';
       }
     }
+    status(`Found ${found.length}: ${found.map(f => f.name).join(', ')}. Tap the right print of each card to add it.`);
   } catch (e) {
     status('Scanner could not start — check internet and try again.');
   }
