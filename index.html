@@ -1475,29 +1475,113 @@ function renderQuiz(result) {
    the agent itself — a passcode alone can never guarantee that on a public
    static site with no backend. ---- */
 const REQUEST_CODE = '86422468';
+
+/* direct-to-disk saving: works only in Chromium browsers (Chrome/Edge) that
+   support the File System Access API, and only on the device where you grant
+   folder access once. No secret is stored anywhere — the browser itself
+   enforces the permission, same as any other site permission. Everywhere
+   else (phone, Safari, Firefox) falls back to the GitHub issue flow. */
+const FS_DB = 'pokedex-fs';
+function idbGet(key) {
+  return new Promise(resolve => {
+    const req = indexedDB.open(FS_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+    req.onsuccess = () => {
+      const tx = req.result.transaction('handles', 'readonly');
+      const g = tx.objectStore('handles').get(key);
+      g.onsuccess = () => resolve(g.result || null);
+      g.onerror = () => resolve(null);
+    };
+    req.onerror = () => resolve(null);
+  });
+}
+function idbSet(key, val) {
+  // wrapped so a non-cloneable value or a full storage quota can never hang
+  // the caller — it just resolves false and the flow falls back safely
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(FS_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('handles');
+      req.onsuccess = () => {
+        try {
+          const tx = req.result.transaction('handles', 'readwrite');
+          tx.objectStore('handles').put(val, key);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch (e) { resolve(false); }
+      };
+      req.onerror = () => resolve(false);
+    } catch (e) { resolve(false); }
+  });
+}
+async function getRepoDirHandle(forcePick) {
+  if (!window.showDirectoryPicker) return null;
+  try {
+    let handle = forcePick ? null : await idbGet('repoDir');
+    if (handle) {
+      const has = await handle.queryPermission({ mode: 'readwrite' });
+      if (has === 'granted') return handle;
+      const asked = await handle.requestPermission({ mode: 'readwrite' });
+      if (asked === 'granted') return handle;
+    }
+    handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    idbSet('repoDir', handle); // best-effort remember; failure here is harmless
+    return handle;
+  } catch (e) { return null; } // user cancelled, or any storage/permission hiccup
+}
+async function writeTaskDirect(text, forcePick) {
+  try {
+    const dir = await getRepoDirHandle(forcePick);
+    if (!dir) return false;
+    const fh = await dir.getFileHandle('TASKS.md', { create: false });
+    const file = await fh.getFile();
+    let content = await file.text();
+    if (!content.endsWith('\n')) content += '\n';
+    content += text + '\n';
+    const w = await fh.createWritable();
+    await w.write(content);
+    await w.close();
+    return true;
+  } catch (e) { return false; } // wrong folder picked, or write failed
+}
+
 function openRequestUpdate() {
   const code = prompt('Enter your code:');
   if (code === null) return;
   if (code !== REQUEST_CODE) { alert('Wrong code.'); return; }
   document.querySelector('.detail').classList.remove('wide');
+  const canDirect = !!window.showDirectoryPicker;
   const body = document.getElementById('detailBody');
   body.innerHTML = `
     <h2>Request an update</h2>
     <p class="subtitle" style="text-align:center; margin:8px 0 14px">
-      Type what you want changed or added. This opens a pre-filled request on
-      GitHub — click "Submit new issue" there to send it. The auto-update
-      agent checks for it every minute and gets to work.
+      Type what you want changed or added. The auto-update agent checks for
+      it every minute and gets to work.
+      ${canDirect
+        ? 'First time on this device, it\'ll ask you to pick the <b>pokedex</b> folder once — after that, requests save instantly with no extra step.'
+        : 'This browser will open a pre-filled request on GitHub — one click there to send it.'}
     </p>
     <textarea id="reqText" rows="5" style="width:100%; padding:10px; border:1.5px solid #ccc;
       border-radius:10px; font-size:14px; font-family:inherit; resize:vertical"
       placeholder="e.g. add a dark mode toggle"></textarea>
-    <button class="moves-btn" style="margin-top:10px" onclick="sendRequestUpdate()">Continue on GitHub →</button>
+    <button class="moves-btn" style="margin-top:10px" onclick="sendRequestUpdate()">Send request</button>
+    ${canDirect ? '<div class="price-note" style="text-align:center">Picked the wrong folder before? <a href="#" onclick="event.preventDefault(); sendRequestUpdate(true)">Choose folder again</a></div>' : ''}
   `;
   document.getElementById('modal').classList.add('open');
 }
-function sendRequestUpdate() {
+async function sendRequestUpdate(forcePick) {
   const text = document.getElementById('reqText').value.trim();
   if (!text) return;
+  if (window.showDirectoryPicker) {
+    const ok = await writeTaskDirect(text, forcePick);
+    if (ok) {
+      const body = document.getElementById('detailBody');
+      body.innerHTML = `<h2>Sent ✓</h2><p class="subtitle" style="text-align:center">
+        Saved to TASKS.md — the agent picks it up within a minute.</p>`;
+      return;
+    }
+    // fall through to GitHub if the folder picker was cancelled/wrong folder
+  }
   const url = 'https://github.com/andreasgraykristoffersen/pokedex/issues/new'
     + '?title=' + encodeURIComponent('Task request: ' + text.slice(0, 60))
     + '&body=' + encodeURIComponent(text)
