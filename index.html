@@ -1050,6 +1050,7 @@
     <option value="big">Big cards</option>
   </select>
   <button class="tab" id="shinyBtn" onclick="toggleShiny()">✨ Shiny</button>
+  <button class="tab" id="reqBtn" onclick="openRequestUpdate()">🔧 Request update</button>
 </header>
 
 <div id="loader">Loading Pokémon...</div>
@@ -1464,6 +1465,45 @@ function renderQuiz(result) {
       </div>
       ${quiz.revealed ? '<button class="moves-btn" style="max-width:300px; margin:16px auto 0" onclick="newQuizRound()">Next Pokémon →</button>' : ''}
     </div>`;
+}
+
+/* ---- request update: instant task request, gated by a passcode.
+   Note: a client-side code check can be read by anyone who views the page
+   source — it is NOT real security, just a casual deterrent. The real
+   protection is that the auto-update agent only ever acts on GitHub issues
+   filed by the actual repo owner's GitHub account, checked server-side by
+   the agent itself — a passcode alone can never guarantee that on a public
+   static site with no backend. ---- */
+const REQUEST_CODE = '8u6422468';
+function openRequestUpdate() {
+  const code = prompt('Enter your code:');
+  if (code === null) return;
+  if (code !== REQUEST_CODE) { alert('Wrong code.'); return; }
+  document.querySelector('.detail').classList.remove('wide');
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `
+    <h2>Request an update</h2>
+    <p class="subtitle" style="text-align:center; margin:8px 0 14px">
+      Type what you want changed or added. This opens a pre-filled request on
+      GitHub — click "Submit new issue" there to send it. The auto-update
+      agent checks for it every minute and gets to work.
+    </p>
+    <textarea id="reqText" rows="5" style="width:100%; padding:10px; border:1.5px solid #ccc;
+      border-radius:10px; font-size:14px; font-family:inherit; resize:vertical"
+      placeholder="e.g. add a dark mode toggle"></textarea>
+    <button class="moves-btn" style="margin-top:10px" onclick="sendRequestUpdate()">Continue on GitHub →</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+function sendRequestUpdate() {
+  const text = document.getElementById('reqText').value.trim();
+  if (!text) return;
+  const url = 'https://github.com/andreasgraykristoffersen/pokedex/issues/new'
+    + '?title=' + encodeURIComponent('Task request: ' + text.slice(0, 60))
+    + '&body=' + encodeURIComponent(text)
+    + '&labels=task-request';
+  window.open(url, '_blank');
+  closeModal();
 }
 
 /* ---- backup: save and load everything you own and saved ---- */
