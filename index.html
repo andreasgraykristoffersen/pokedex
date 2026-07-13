@@ -223,6 +223,12 @@
   body.quiz-view #quiz { display: block; }
   body.quiz-view #grid, body.quiz-view #cards, body.quiz-view #favs,
   body.quiz-view #groups, body.quiz-view #games, body.quiz-view #coll, body.quiz-view #trainers { display: none; }
+
+  #finder { display: none; padding: 24px; max-width: 800px; margin: 0 auto; }
+  body.finder-view #finder { display: block; }
+  body.finder-view #grid, body.finder-view #cards, body.finder-view #favs,
+  body.finder-view #groups, body.finder-view #games, body.finder-view #coll,
+  body.finder-view #trainers, body.finder-view #quiz { display: none; }
   .quiz-box {
     background: #fff;
     border-radius: 12px;
@@ -1025,6 +1031,7 @@
     <button class="tab" id="tabTrainers" onclick="setView('trainers')">Items & Trainers</button>
     <button class="tab" id="tabColl" onclick="setView('coll')">My Collection</button>
     <button class="tab" id="tabQuiz" onclick="setView('quiz')">Quiz</button>
+    <button class="tab" id="tabFinder" onclick="setView('finder')">🔎 Find a Pokémon</button>
     <button class="tab" id="loginBtn" style="display:none" onclick="loginClick()">Sign in with Google</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
@@ -1076,6 +1083,7 @@
 <div id="coll"></div>
 <div id="trainers"></div>
 <div id="quiz"></div>
+<div id="finder"></div>
 
 <div id="modal">
   <div class="detail">
@@ -1349,6 +1357,7 @@ function setView(view) {
   document.body.classList.toggle('coll-view', view === 'coll');
   document.body.classList.toggle('trainers-view', view === 'trainers');
   document.body.classList.toggle('quiz-view', view === 'quiz');
+  document.body.classList.toggle('finder-view', view === 'finder');
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
   document.getElementById('tabFavs').classList.toggle('active', view === 'favs');
@@ -1357,7 +1366,9 @@ function setView(view) {
   document.getElementById('tabColl').classList.toggle('active', view === 'coll');
   document.getElementById('tabTrainers').classList.toggle('active', view === 'trainers');
   document.getElementById('tabQuiz').classList.toggle('active', view === 'quiz');
+  document.getElementById('tabFinder').classList.toggle('active', view === 'finder');
   if (view === 'quiz') renderQuiz();
+  if (view === 'finder') renderFinder();
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
   if (view === 'games') renderGames();
@@ -1440,6 +1451,172 @@ function openTrainerCard(i) {
 function playCry(id) {
   new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${id}.ogg`)
     .play().catch(() => {});
+}
+
+/* ---- Pokémon Finder: narrows down which Pokémon you're thinking of by
+   asking smart questions (type, color, shape, rarity, evolution, gen) —
+   like Guess Who, using real species data instead of a fixed script ---- */
+const speciesExtra = {};
+let finderReady = false;
+async function loadFinderData() {
+  if (finderReady) return;
+  try {
+    const res = await fetch('https://beta.pokeapi.co/graphql/v1beta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query:
+        `query { pokemon_v2_pokemonspecies {
+          id is_legendary is_mythical evolves_from_species_id
+          pokemon_v2_pokemoncolor { name }
+          pokemon_v2_pokemonshape { name }
+        } }`
+      })
+    });
+    const json = await res.json();
+    json.data.pokemon_v2_pokemonspecies.forEach(s => {
+      speciesExtra[s.id] = {
+        color: s.pokemon_v2_pokemoncolor?.name || null,
+        shape: s.pokemon_v2_pokemonshape?.name || null,
+        legendary: s.is_legendary, mythical: s.is_mythical,
+        evolvesFrom: s.evolves_from_species_id
+      };
+    });
+    finderReady = true;
+  } catch (e) { /* renderFinder shows a status message if data never arrives */ }
+}
+
+const SHAPE_LABELS = {
+  ball: 'Round like a ball', squiggle: 'Squiggly / serpentine', fish: 'Fish-like',
+  arms: 'Has arms, no legs', blob: 'Blob-shaped', upright: 'Stands upright on two legs',
+  legs: 'Has legs, no arms', quadruped: 'Four-legged animal', wings: 'Has wings',
+  tentacles: 'Has tentacles', heads: 'Multiple heads', humanoid: 'Human-like body',
+  'bug-wings': 'Insect-style wings', armor: 'Armored / shelled'
+};
+const FINDER_QUESTIONS = [
+  { key: 'type', label: 'What type is it?',
+    options: () => ALL_TYPES.map(t => ({ v: t, label: t[0].toUpperCase() + t.slice(1) })),
+    match: (p, v) => p.types.some(t => t.type.name === v) },
+  { key: 'color', label: 'What color is it, mostly?',
+    options: () => ['black','blue','brown','gray','green','pink','purple','red','white','yellow']
+      .map(c => ({ v: c, label: c[0].toUpperCase() + c.slice(1) })),
+    match: (p, v) => speciesExtra[p.id]?.color === v },
+  { key: 'shape', label: "What's its body shape?",
+    options: () => Object.entries(SHAPE_LABELS).map(([v, label]) => ({ v, label })),
+    match: (p, v) => speciesExtra[p.id]?.shape === v },
+  { key: 'rarity', label: 'Is it legendary or mythical?',
+    options: () => [
+      { v: 'legendary', label: 'Legendary' },
+      { v: 'mythical', label: 'Mythical' },
+      { v: 'regular', label: 'Just a regular Pokémon' }
+    ],
+    match: (p, v) => {
+      const s = speciesExtra[p.id]; if (!s) return false;
+      if (v === 'legendary') return s.legendary;
+      if (v === 'mythical') return s.mythical;
+      return !s.legendary && !s.mythical;
+    } },
+  { key: 'evo', label: 'Does it evolve from an earlier Pokémon?',
+    options: () => [{ v: 'yes', label: 'Yes, evolved from something' }, { v: 'no', label: 'No, first form' }],
+    match: (p, v) => {
+      const s = speciesExtra[p.id]; if (!s) return false;
+      return v === 'yes' ? !!s.evolvesFrom : !s.evolvesFrom;
+    } },
+  { key: 'gen', label: 'Which generation is it from?',
+    options: () => GENS.map(g => ({ v: g.gen, label: `Gen ${g.gen} (${g.games})` })),
+    match: (p, v) => { const g = GENS.find(x => x.gen === Number(v)); return !!g && p.id >= g.from && p.id <= g.to; } }
+];
+
+let finderHistory = [];        // [{qKey, v, label}]
+let finderAsked = new Set();   // question keys already answered or skipped
+
+function finderCandidates() {
+  return allPokemon.filter(p => finderHistory.every(h =>
+    FINDER_QUESTIONS.find(q => q.key === h.qKey).match(p, h.v)
+  ));
+}
+// only ask a question if it can actually split the remaining pool
+function finderNextQuestion(candidates) {
+  for (const q of FINDER_QUESTIONS) {
+    if (finderAsked.has(q.key)) continue;
+    const splits = q.options().filter(o => candidates.some(p => q.match(p, o.v))).length;
+    if (splits >= 2) return q;
+  }
+  return null;
+}
+function finderAnswer(qKey, v, label) {
+  finderHistory.push({ qKey, v, label });
+  finderAsked.add(qKey);
+  renderFinder();
+}
+function finderSkip(qKey) {
+  finderAsked.add(qKey);
+  renderFinder();
+}
+function finderUndo() {
+  if (!finderHistory.length) return;
+  finderAsked.delete(finderHistory.pop().qKey);
+  renderFinder();
+}
+function finderRestart() {
+  finderHistory = [];
+  finderAsked = new Set();
+  renderFinder();
+}
+function finderTiles(list) {
+  return `<div class="fav-toggle" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:12px">
+    ${list.map(p => `
+      <div class="card" onclick="openDetail(${p.id})">
+        <img loading="lazy" src="${p.sprites.front_default || ''}" alt="${p.name}">
+        <div class="name">${displayName(p)}</div>
+      </div>`).join('')}
+  </div>`;
+}
+async function renderFinder() {
+  const el = document.getElementById('finder');
+  if (!allPokemon.length) {
+    el.innerHTML = '<div class="tcg-status">Pokémon still loading — try again in a moment...</div>';
+    return;
+  }
+  if (!finderReady) {
+    el.innerHTML = '<div class="tcg-status">Loading data for the finder...</div>';
+    await loadFinderData();
+    if (!document.body.classList.contains('finder-view')) return; // user left this tab meanwhile
+  }
+  const candidates = finderCandidates();
+  const chips = finderHistory.map(h => `<span class="move-chip">${h.label}</span>`).join('');
+  const top = `
+    <div class="quiz-box" style="margin-bottom:16px">
+      <h2>🔎 Find a Pokémon</h2>
+      <div class="quiz-score">${candidates.length} Pokémon still match</div>
+      ${chips ? `<div class="move-chips" style="justify-content:center; margin:8px 0">${chips}</div>` : ''}
+      <div style="margin-top:8px">
+        ${finderHistory.length ? '<button class="lang-btn" onclick="finderUndo()">↩ Undo</button>' : ''}
+        <button class="lang-btn" onclick="finderRestart()">↺ Start over</button>
+      </div>
+    </div>`;
+
+  if (candidates.length === 0) {
+    el.innerHTML = top + '<div class="tcg-status">No Pokémon matches all of that — try undoing your last answer.</div>';
+    return;
+  }
+  if (candidates.length <= 9) {
+    el.innerHTML = top + `<div class="dex-title" style="text-align:center">Is it one of these?</div>` + finderTiles(candidates);
+    return;
+  }
+  const q = finderNextQuestion(candidates);
+  if (!q) {
+    el.innerHTML = top + `<div class="dex-title" style="text-align:center">${candidates.length} still match — pick one:</div>
+      <div style="max-height:420px; overflow:auto">${finderTiles(candidates)}</div>`;
+    return;
+  }
+  el.innerHTML = top + `
+    <div class="quiz-box">
+      <h2>${q.label}</h2>
+      <div class="quiz-opts" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">
+        ${q.options().map(o => `<button class="quiz-opt" onclick="finderAnswer('${q.key}','${o.v}','${o.label}')">${o.label}</button>`).join('')}
+      </div>
+      <button class="lang-btn" style="margin-top:12px" onclick="finderSkip('${q.key}')">Skip this question</button>
+    </div>`;
 }
 
 /* ---- who's that pokemon? quiz ---- */
