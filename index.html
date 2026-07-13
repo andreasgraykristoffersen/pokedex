@@ -997,6 +997,18 @@
     margin-left: 10px;
   }
   .store a:hover { text-decoration: underline; }
+
+  /* dark mode: inverts the whole page, then un-inverts real images and
+     brand-colored bits (type chips, rarity badges, price chart, trading
+     cards) so photos and type colors still look correct */
+  body.dark-mode { filter: invert(1) hue-rotate(180deg); background: #fff; }
+  body.dark-mode img,
+  body.dark-mode .type,
+  body.dark-mode .badge,
+  body.dark-mode .tcard,
+  body.dark-mode .pchart svg {
+    filter: invert(1) hue-rotate(180deg);
+  }
 </style>
 </head>
 <body>
@@ -1050,6 +1062,7 @@
     <option value="big">Big cards</option>
   </select>
   <button class="tab" id="shinyBtn" onclick="toggleShiny()">✨ Shiny</button>
+  <button class="tab" id="darkBtn" onclick="toggleDark()">🌙 Dark mode</button>
   <button class="tab" id="reqBtn" onclick="openRequestUpdate()">🔧 Request update</button>
 </header>
 
@@ -1125,6 +1138,21 @@ function toggleShiny() {
   if (document.body.classList.contains('favs-view')) renderFavs();
 }
 document.getElementById('shinyBtn').classList.toggle('active', shinyMode);
+
+/* ---- dark mode: remembered choice, defaults to the system's preference ---- */
+let darkMode = localStorage.getItem('pokedex-dark') !== null
+  ? localStorage.getItem('pokedex-dark') === '1'
+  : window.matchMedia('(prefers-color-scheme: dark)').matches;
+function applyDark() {
+  document.body.classList.toggle('dark-mode', darkMode);
+  document.getElementById('darkBtn').classList.toggle('active', darkMode);
+}
+function toggleDark() {
+  darkMode = !darkMode;
+  localStorage.setItem('pokedex-dark', darkMode ? '1' : '0');
+  applyDark();
+}
+applyDark();
 
 /* ---- pokemon names in chosen language ---- */
 let nameLang = 'en';
