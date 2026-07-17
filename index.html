@@ -1195,13 +1195,69 @@ document.getElementById('nameLang').addEventListener('change', async e => {
   render();
 });
 
+/* ---- local cache so return visits skip the ~30s refetch entirely ----
+   Same robust get/set pattern as the folder-handle cache: never hangs or
+   throws, just resolves null/false on any storage hiccup. */
+const POKECACHE_DB = 'pokedex-cache';
+const POKECACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+function pcGet(key) {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(POKECACHE_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      req.onsuccess = () => {
+        try {
+          const g = req.result.transaction('kv', 'readonly').objectStore('kv').get(key);
+          g.onsuccess = () => resolve(g.result || null);
+          g.onerror = () => resolve(null);
+        } catch (e) { resolve(null); }
+      };
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+function pcSet(key, val) {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(POKECACHE_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      req.onsuccess = () => {
+        try {
+          const tx = req.result.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(val, key);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch (e) { resolve(false); }
+      };
+      req.onerror = () => resolve(false);
+    } catch (e) { resolve(false); }
+  });
+}
+
 async function load() {
+  const cached = await pcGet('allPokemon');
+  if (cached?.data?.length) {
+    // instant start: show what we saved last time right away
+    allPokemon.push(...cached.data);
+    if (cached.totalCount) TOTAL_COUNT = cached.totalCount;
+    render();
+    document.getElementById('loader').style.display = 'none';
+    const isFresh = Date.now() - cached.ts < POKECACHE_MAX_AGE;
+    if (isFresh) return; // recent enough — skip the network fetch this visit
+    fetchAllPokemon(true); // stale: quietly refresh in the background
+    return;
+  }
+  await fetchAllPokemon(false); // first-ever visit: fetch and show progress
+}
+
+async function fetchAllPokemon(background) {
   // ask the database how many pokemon exist — new generations appear by themselves
   try {
     const j = await fetch(`${API}/pokemon-species?limit=1`).then(r => r.json());
     if (j.count > TOTAL_COUNT) TOTAL_COUNT = j.count;
   } catch (e) { /* fallback count is fine */ }
   const ids = Array.from({length: TOTAL_COUNT}, (_, i) => i + 1);
+  const fresh = [];
   // fetch in chunks to be kind to the API
   const chunkSize = 50;
   for (let i = 0; i < ids.length; i += chunkSize) {
@@ -1210,7 +1266,7 @@ async function load() {
       chunk.map(id => fetch(`${API}/pokemon/${id}`).then(r => r.json()))
     );
     // keep only the fields we use — full JSON for 1025 pokemon eats memory
-    allPokemon.push(...results.map(p => ({
+    const trimmed = results.map(p => ({
       id: p.id, name: p.name, height: p.height, weight: p.weight,
       base_experience: p.base_experience,
       types: p.types, stats: p.stats, abilities: p.abilities,
@@ -1219,12 +1275,24 @@ async function load() {
         front_default: p.sprites.front_default,
         other: { 'official-artwork': { front_default: p.sprites.other['official-artwork']?.front_default } }
       }
-    })));
-    render();
-    document.getElementById('loader').textContent =
-      `Loading Pokémon... ${allPokemon.length}/${TOTAL_COUNT}`;
+    }));
+    fresh.push(...trimmed);
+    if (!background) {
+      allPokemon.push(...trimmed);
+      render();
+      document.getElementById('loader').textContent =
+        `Loading Pokémon... ${allPokemon.length}/${TOTAL_COUNT}`;
+    }
   }
-  document.getElementById('loader').style.display = 'none';
+  if (background) {
+    // swap in the refreshed data in one go so cached browsing isn't disturbed mid-fetch
+    allPokemon.length = 0;
+    allPokemon.push(...fresh);
+    render();
+  } else {
+    document.getElementById('loader').style.display = 'none';
+  }
+  pcSet('allPokemon', { ts: Date.now(), totalCount: TOTAL_COUNT, data: fresh });
 }
 
 function currentList() {
