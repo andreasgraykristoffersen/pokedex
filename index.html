@@ -1063,6 +1063,77 @@
     color: #188038;
   }
 
+  /* packs view */
+  #packs { display: none; padding: 24px; max-width: 1000px; margin: 0 auto; }
+  body.packs-view #packs { display: block; }
+  body.packs-view #grid, body.packs-view #cards, body.packs-view #favs,
+  body.packs-view #groups, body.packs-view #games, body.packs-view #coll,
+  body.packs-view #trainers, body.packs-view #quiz, body.packs-view #finder,
+  body.packs-view #compare { display: none; }
+  .pack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .pack-tile {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .pack-tile:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+  .pack-tile { position: relative; }
+  .pack-cam {
+    position: absolute;
+    top: 5px; right: 5px;
+    z-index: 2;
+    border: none;
+    background: rgba(255,255,255,0.92);
+    border-radius: 50%;
+    width: 27px; height: 27px;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .pack-cam:hover { background: #fff; }
+  /* beats the popup's generic `.detail img` sizing rule */
+  .detail img.pack-big {
+    width: 100%;
+    height: auto;
+    max-height: 440px;
+    object-fit: contain;
+    image-rendering: auto;
+    display: block;
+    margin: 16px auto;
+  }
+  .pack-tile img { width: 100%; height: 62px; object-fit: contain; }
+  .pack-tile .pname { font-weight: 700; font-size: 14px; margin-top: 8px; }
+  .pack-tile .pmeta { color: #888; font-size: 12px; margin-top: 2px; }
+  .odds-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 8px;
+    border-bottom: 1px solid #f1f1f1;
+    cursor: pointer;
+  }
+  .odds-row:hover { background: #fafafa; }
+  .odds-row img { width: 46px; height: auto; border-radius: 4px; flex-shrink: 0; }
+  .odds-name { flex: 1; min-width: 0; }
+  .odds-name b { display: block; font-size: 13.5px; }
+  .odds-name span { color: #888; font-size: 11.5px; }
+  .odds-num { text-align: right; flex-shrink: 0; width: 116px; }
+  .odds-num b { display: block; font-size: 14px; color: #188038; }
+  .odds-num span { color: #888; font-size: 11px; }
+  .odds-bar { height: 5px; background: #eee; border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  .odds-bar > div { height: 100%; background: #188038; border-radius: 3px; }
+  .pack-hero { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .pack-hero img { height: 70px; object-fit: contain; }
+
   /* ---- phone layout: scrollable tab strip, filters behind a menu button ---- */
   #menuBtn { display: none; }
   @media (max-width: 760px) {
@@ -1091,6 +1162,9 @@
     #cards, #favs, #groups, #coll, #trainers, #games { padding: 12px; }
     #quiz, #finder, #compare { padding: 12px; }
     .cmp-cols { grid-template-columns: 1fr; }
+    #packs { padding: 12px; }
+    .pack-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .odds-num { width: 92px; }
     .cmp-stat { grid-template-columns: 40px 1fr 76px 1fr 40px; font-size: 12px; }
     .detail { padding: 16px; }
   }
@@ -1122,6 +1196,7 @@
     <button class="tab" id="tabQuiz" onclick="setView('quiz')">Quiz</button>
     <button class="tab" id="tabFinder" onclick="setView('finder')">🔎 Find a Pokémon</button>
     <button class="tab" id="tabCompare" onclick="setView('compare')">⚔ Compare</button>
+    <button class="tab" id="tabPacks" onclick="setView('packs')">🎴 Packs</button>
     <button class="tab" id="loginBtn" style="display:none" onclick="loginClick()">Sign in with Google</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
@@ -1175,6 +1250,7 @@
 <div id="quiz"></div>
 <div id="finder"></div>
 <div id="compare"></div>
+<div id="packs"></div>
 
 <div id="modal">
   <div class="detail">
@@ -1518,6 +1594,7 @@ function setView(view) {
   document.body.classList.toggle('quiz-view', view === 'quiz');
   document.body.classList.toggle('finder-view', view === 'finder');
   document.body.classList.toggle('compare-view', view === 'compare');
+  document.body.classList.toggle('packs-view', view === 'packs');
   document.body.classList.remove('menu-open'); // close the phone menu on tab switch
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
@@ -1529,9 +1606,11 @@ function setView(view) {
   document.getElementById('tabQuiz').classList.toggle('active', view === 'quiz');
   document.getElementById('tabFinder').classList.toggle('active', view === 'finder');
   document.getElementById('tabCompare').classList.toggle('active', view === 'compare');
+  document.getElementById('tabPacks').classList.toggle('active', view === 'packs');
   if (view === 'quiz') renderQuiz();
   if (view === 'finder') renderFinder();
   if (view === 'compare') renderCompare();
+  if (view === 'packs') { if (!packSets.length) loadPackSets(); else renderPacks(); }
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
   if (view === 'games') renderGames();
@@ -1782,6 +1861,197 @@ async function renderFinder() {
     </div>`;
 }
 
+/* ---- packs: every booster set, and the chance of pulling each card ----
+   Odds are ESTIMATES. The Pokémon Company never publishes real pull rates
+   for physical packs, so these come from widely-reported community rates
+   per rarity slot, split evenly across the cards of that rarity in the set. */
+const PACK_ODDS = {          // expected copies of that rarity per pack
+  'Common': 4, 'Uncommon': 3,
+  'Rare': 0.62, 'Rare Holo': 0.33,
+  'Double Rare': 0.083, 'Ultra Rare': 0.04,
+  'Illustration Rare': 0.083, 'Special Illustration Rare': 0.012,
+  'Hyper Rare': 0.0067, 'Mega Hyper Rare': 0.0067,
+  'Rare Secret': 0.0067, 'Rare Rainbow': 0.0067,
+  'Rare Holo EX': 0.06, 'Rare Holo GX': 0.06, 'Rare Holo V': 0.09,
+  'Rare Holo VMAX': 0.04, 'Rare Holo VSTAR': 0.04, 'Rare Holo LV.X': 0.03,
+  'Rare Ultra': 0.04, 'Rare Shiny': 0.02, 'Rare Shiny GX': 0.012,
+  'Amazing Rare': 0.03, 'Radiant Rare': 0.04,
+  'Trainer Gallery Rare Holo': 0.06, 'Rare Prime': 0.03,
+  'Rare ACE': 0.02, 'ACE SPEC Rare': 0.03, 'Rare BREAK': 0.04, 'LEGEND': 0.02,
+  'Promo': 0
+};
+const BOX_PACKS = 36;
+// old sets leave basic energies with no rarity at all — they fill the energy
+// slot, so they are near-guaranteed, not chase cards
+const NO_RARITY_ODDS = 1;
+// anything rarer than a plain rare counts as a "hit" — works across all eras
+// (Rare Holo, Double Rare, Ultra, Illustration, Hyper, V/VMAX/VSTAR, ...)
+const CHASE_MAX_SLOT = 0.35;
+
+let packSets = [], packSetsLoading = false;
+let openPackId = null, packCards = [], packLoading = false, packQuery = '';
+
+async function loadPackSets() {
+  if (packSets.length || packSetsLoading) return;
+  packSetsLoading = true;
+  renderPacks();
+  try {
+    const j = await fetchWithRetry('https://api.pokemontcg.io/v2/sets?pageSize=250&orderBy=-releaseDate');
+    packSets = j.data || [];
+  } catch (e) { /* status message covers it */ }
+  packSetsLoading = false;
+  renderPacks();
+}
+
+async function openPack(id) {
+  openPackId = id;
+  packCards = [];
+  packLoading = true;
+  renderPacks();
+  try {
+    // sets can exceed one page (250) once secret rares are included
+    let all = [];
+    for (let page = 1; page <= 3; page++) {
+      const j = await fetchWithRetry(
+        `https://api.pokemontcg.io/v2/cards?q=set.id:${encodeURIComponent(id)}&pageSize=250&page=${page}`);
+      all = all.concat(j.data || []);
+      if (all.length >= (j.totalCount || 0) || !(j.data || []).length) break;
+    }
+    packCards = all;
+  } catch (e) { /* status message covers it */ }
+  packLoading = false;
+  renderPacks();
+}
+function closePack() { openPackId = null; packCards = []; renderPacks(); }
+
+// chance that one specific card shows up in a single pack
+function cardPackOdds(card, rarityCounts) {
+  const slot = PACK_ODDS[card.rarity] ?? NO_RARITY_ODDS;
+  const sameRarity = rarityCounts[card.rarity] || 1;
+  return Math.min(slot / sameRarity, 1);
+}
+function fmtOdds(p) {
+  if (p <= 0) return { pct: 'not in packs', one: 'promo / special product' };
+  const pct = p >= 0.01 ? (p * 100).toFixed(1) + '%' : (p * 100).toFixed(2) + '%';
+  return { pct, one: '1 in ' + Math.round(1 / p).toLocaleString() + ' packs' };
+}
+/* big view of a pack. The card database only ships official set artwork —
+   the art printed on the wrapper — not photos of sealed products, so we show
+   that big and link out to real product photos. */
+function showPackPicture(id, ev) {
+  if (ev) ev.stopPropagation();
+  const s = packSets.find(x => x.id === id);
+  if (!s) return;
+  document.querySelector('.detail').classList.add('wide');
+  const body = document.getElementById('detailBody');
+  const q = encodeURIComponent(`pokemon ${s.name} booster pack`);
+  body.innerHTML = `
+    <h2 style="text-align:center">${esc(s.name)}</h2>
+    <div class="subtitle" style="text-align:center">
+      ${s.releaseDate || ''} · ${s.total} cards${s.printedTotal ? ` (${s.total - s.printedTotal} secret)` : ''}
+    </div>
+    <img class="pack-big" src="${s.images?.logo || ''}" alt="${esc(s.name)}">
+    ${s.images?.symbol ? `<div style="text-align:center"><img src="${s.images.symbol}" alt="" style="width:54px;height:54px;object-fit:contain"></div>` : ''}
+    <a class="shop-btn ebay" style="margin-top:14px"
+       href="https://www.google.com/search?tbm=isch&q=${q}" target="_blank">See real photos of this pack</a>
+    <button class="moves-btn" onclick="closeModal(); openPack('${s.id}')">Show the odds for this pack</button>
+    <div class="price-note" style="text-align:center">
+      This is the official set artwork printed on the wrapper. Sealed-pack photos differ by product.
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function openPackCard(i) {
+  const c = packCards[i];
+  if (c) openBuyCard(c.name, -1, 0, 'en', null, c);
+}
+
+function renderPacks() {
+  const el = document.getElementById('packs');
+
+  // ---- one pack open: its cards, rarest (best) first ----
+  if (openPackId) {
+    const set = packSets.find(s => s.id === openPackId);
+    const head = `
+      <button class="back-btn" onclick="closePack()">&larr; All packs</button>
+      <div class="quiz-box pack-hero" style="margin-bottom:14px">
+        ${set?.images?.logo ? `<img src="${set.images.logo}" alt="">` : ''}
+        <div style="text-align:left">
+          <div style="font-size:19px; font-weight:800">${esc(set?.name || 'Pack')}</div>
+          <div class="subtitle">${set?.releaseDate || ''}${set ? ' · ' + set.total + ' cards' : ''}</div>
+          <button class="lang-btn" style="margin-top:6px" onclick="showPackPicture('${openPackId}')">📷 See the pack big</button>
+        </div>
+      </div>`;
+    if (packLoading) { el.innerHTML = head + '<div class="tcg-status">Loading cards and working out the odds...</div>'; return; }
+    if (!packCards.length) {
+      el.innerHTML = head + `<div class="tcg-status">Could not load this pack.<br><br>
+        <button class="lang-btn active" onclick="openPack('${openPackId}')">Try again</button></div>`;
+      return;
+    }
+
+    const rarityCounts = {};
+    packCards.forEach(c => { rarityCounts[c.rarity] = (rarityCounts[c.rarity] || 0) + 1; });
+    const scored = packCards
+      .map((c, i) => ({ c, i, p: cardPackOdds(c, rarityCounts) }))
+      .sort((a, b) => a.p - b.p); // rarest first = the cards worth chasing
+    const best = scored.filter(s => s.p > 0 && (PACK_ODDS[s.c.rarity] ?? 99) <= CHASE_MAX_SLOT);
+    const chaseChance = 1 - best.reduce((acc, s) => acc * (1 - s.p), 1);
+    const maxP = scored[scored.length - 1]?.p || 1;
+
+    el.innerHTML = head + `
+      <div class="quiz-box" style="margin-bottom:14px; text-align:center">
+        <div class="coll-value">${(chaseChance * 100).toFixed(1)}%</div>
+        <div class="coll-sub">chance of a hit (holo rare or better) in any single pack<br>
+          about ${(chaseChance * BOX_PACKS).toFixed(1)} of them in a ${BOX_PACKS}-pack box</div>
+      </div>
+      <div class="dex-title">Every card — rarest first. Tap one to see what it's worth.</div>
+      ${scored.map(s => {
+        const f = fmtOdds(s.p);
+        return `
+        <div class="odds-row" onclick="openPackCard(${s.i})">
+          <img loading="lazy" src="${s.c.images.small}" alt="${esc(s.c.name)}">
+          <div class="odds-name">
+            <b>${esc(s.c.name)}</b>
+            <span>${s.c.number}/${set?.printedTotal || '?'} · ${esc(s.c.rarity || 'unknown rarity')}</span>
+            <div class="odds-bar"><div style="width:${Math.max(2, (s.p / maxP) * 100).toFixed(1)}%"></div></div>
+          </div>
+          <div class="odds-num"><b>${f.pct}</b><span>${f.one}</span></div>
+        </div>`;
+      }).join('')}
+      <div class="price-note" style="margin-top:12px">
+        Odds are estimates from community-reported pull rates — the real ones are never published.
+      </div>`;
+    return;
+  }
+
+  // ---- pack list ----
+  if (packSetsLoading) { el.innerHTML = '<div class="tcg-status">Loading every pack...</div>'; return; }
+  if (!packSets.length) {
+    el.innerHTML = `<div class="tcg-status">Could not load packs.<br><br>
+      <button class="lang-btn active" onclick="loadPackSets()">Try again</button></div>`;
+    return;
+  }
+  const q = packQuery.toLowerCase();
+  const list = q ? packSets.filter(s => s.name.toLowerCase().includes(q)) : packSets;
+  el.innerHTML = `
+    <div class="quiz-box" style="text-align:center">
+      <h2>🎴 Packs</h2>
+      <div class="quiz-score">${packSets.length} booster sets — pick one to see what's inside and your odds</div>
+      <input class="cmp-pick" style="max-width:340px; padding:9px 14px; border:1.5px solid #ccc; border-radius:10px; font-size:14px"
+             placeholder="Search a pack..." value="${esc(packQuery)}"
+             oninput="packQuery=this.value; renderPacks(); const i=document.querySelector('#packs input'); i.focus(); i.setSelectionRange(i.value.length,i.value.length);">
+    </div>
+    <div class="pack-grid">
+      ${list.map(s => `
+        <div class="pack-tile" onclick="openPack('${s.id}')">
+          <button class="pack-cam" title="See the pack big" onclick="showPackPicture('${s.id}', event)">📷</button>
+          <img loading="lazy" src="${s.images?.logo || ''}" alt="${esc(s.name)}">
+          <div class="pname">${esc(s.name)}</div>
+          <div class="pmeta">${s.total} cards · ${(s.releaseDate || '').slice(0, 4)}</div>
+        </div>`).join('') || '<div class="tcg-status" style="grid-column:1/-1">No pack with that name.</div>'}
+    </div>`;
+}
+
 /* ---- compare: two pokemon side by side, stats + type matchup verdict ---- */
 let cmpA = null, cmpB = null;
 function cmpSearchHtml(side) {
@@ -1831,16 +2101,50 @@ async function bestHit(att, def) {
   }
   return best;
 }
+function cmpLabel(p) {
+  if (!(p.name || '').includes('-mega')) return displayName(p);
+  const base = allPokemon.find(x => x.id === p.id);
+  return `${displayName(base || p)} — ${prettyForm(p.name, base?.name || '')}`;
+}
 function cmpMonHtml(p, side) {
+  const isMega = (p.name || '').includes('-mega');
+  // mega form objects carry their own sprite; sprUrl keys off the base id
+  const img = isMega ? (p.sprites.front_default || '') : sprUrl(p);
+  const label = cmpLabel(p);
   return `
     <div class="cmp-mon">
-      <img src="${sprUrl(p)}" onerror="this.src='${p.sprites.front_default || ''}'" alt="${p.name}">
-      <div class="name">${displayName(p)}</div>
+      <img src="${img}" onerror="this.src='${p.sprites.front_default || ''}'" alt="${p.name}">
+      <div class="name">${label}</div>
       <div class="types" style="margin:6px 0">
         ${p.types.map(t => `<span class="type ${t.type.name}">${t.type.name}</span>`).join('')}
       </div>
-      <button class="lang-btn" onclick="cmpClear('${side}')">Change</button>
+      <div id="cmpForms${side}"></div>
+      <button class="lang-btn" style="margin-top:6px" onclick="cmpClear('${side}')">Change</button>
     </div>`;
+}
+
+/* mega switcher: appears under a picked pokemon that has mega forms */
+async function fillCmpForms(side) {
+  const cur = side === 'A' ? cmpA : cmpB;
+  if (!cur) return;
+  const species = await getSpecies(cur.id);
+  const megas = (species?.varieties || []).filter(v => v.pokemon.name.includes('-mega'));
+  const box = document.getElementById('cmpForms' + side);
+  // user may have swapped or cleared the pick while we were fetching
+  if (!box || (side === 'A' ? cmpA : cmpB) !== cur || !megas.length) return;
+  const baseName = allPokemon.find(x => x.id === cur.id)?.name || '';
+  box.innerHTML = `<div class="langs" style="margin-top:6px">
+    <button class="lang-btn ${!cur.name.includes('-mega') ? 'active' : ''}"
+            onclick="cmpSetForm('${side}', ${cur.id}, '')">Normal</button>
+    ${megas.map(v => `<button class="lang-btn ${cur.name === v.pokemon.name ? 'active' : ''}"
+            onclick="cmpSetForm('${side}', ${cur.id}, '${v.pokemon.name}')">${prettyForm(v.pokemon.name, baseName)}</button>`).join('')}
+  </div>`;
+}
+async function cmpSetForm(side, baseId, formName) {
+  const mon = formName ? await getForm(formName, baseId) : allPokemon.find(x => x.id === baseId);
+  if (!mon) return;
+  if (side === 'A') cmpA = mon; else cmpB = mon;
+  renderCompare();
 }
 function renderCompare() {
   const el = document.getElementById('compare');
@@ -1886,6 +2190,8 @@ function renderCompare() {
         <div>${right}</div>
       </div>
     </div>${battle}`;
+  if (cmpA) fillCmpForms('A');
+  if (cmpB) fillCmpForms('B');
   if (cmpA && cmpB) fillMatchup();
 }
 async function fillMatchup() {
@@ -1901,12 +2207,12 @@ async function fillMatchup() {
   const scoreB = b.stats.reduce((s, x) => s + x.base_stat, 0) * Math.max(hitB, 0.25);
   const verdict = Math.abs(scoreA - scoreB) < Math.max(scoreA, scoreB) * 0.1
     ? 'Close fight — could go either way!'
-    : `${displayName(scoreA > scoreB ? a : b)} is favored!`;
+    : `${cmpLabel(scoreA > scoreB ? a : b)} is favored!`;
   box.innerHTML = `
     <div class="dex-title" style="text-align:center">Type matchup</div>
     <p class="subtitle" style="text-align:center">
-      ${displayName(a)} hits ${displayName(b)} at ${fmtX(hitA)} ·
-      ${displayName(b)} hits ${displayName(a)} at ${fmtX(hitB)}
+      ${cmpLabel(a)} hits ${cmpLabel(b)} at ${fmtX(hitA)} ·
+      ${cmpLabel(b)} hits ${cmpLabel(a)} at ${fmtX(hitB)}
     </p>
     <div class="cmp-verdict" style="text-transform:capitalize">${verdict}</div>`;
 }
