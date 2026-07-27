@@ -1197,6 +1197,7 @@
     <button class="tab" id="tabFinder" onclick="setView('finder')">🔎 Find a Pokémon</button>
     <button class="tab" id="tabCompare" onclick="setView('compare')">⚔ Compare</button>
     <button class="tab" id="tabPacks" onclick="setView('packs')">🎴 Packs</button>
+    <button class="tab" id="tabBoxes" onclick="setView('boxes')">📦 Boxes</button>
     <button class="tab" id="loginBtn" style="display:none" onclick="loginClick()">Sign in with Google</button>
   </div>
   <input id="search" type="text" placeholder="Search name or number...">
@@ -1594,7 +1595,9 @@ function setView(view) {
   document.body.classList.toggle('quiz-view', view === 'quiz');
   document.body.classList.toggle('finder-view', view === 'finder');
   document.body.classList.toggle('compare-view', view === 'compare');
-  document.body.classList.toggle('packs-view', view === 'packs');
+  // Packs and Boxes are the same screen, just a different product size
+  const packsLike = view === 'packs' || view === 'boxes';
+  document.body.classList.toggle('packs-view', packsLike);
   document.body.classList.remove('menu-open'); // close the phone menu on tab switch
   document.getElementById('tabDex').classList.toggle('active', view === 'dex');
   document.getElementById('tabCards').classList.toggle('active', view === 'cards');
@@ -1606,11 +1609,14 @@ function setView(view) {
   document.getElementById('tabQuiz').classList.toggle('active', view === 'quiz');
   document.getElementById('tabFinder').classList.toggle('active', view === 'finder');
   document.getElementById('tabCompare').classList.toggle('active', view === 'compare');
-  document.getElementById('tabPacks').classList.toggle('active', view === 'packs');
   if (view === 'quiz') renderQuiz();
   if (view === 'finder') renderFinder();
   if (view === 'compare') renderCompare();
-  if (view === 'packs') { if (!packSets.length) loadPackSets(); else renderPacks(); }
+  if (packsLike) {
+    packProduct = view === 'boxes' ? 'box' : 'pack';
+    if (!packSets.length) loadPackSets(); else renderPacks();
+  }
+  syncPackTabs();
   if (view === 'favs') renderFavs();
   if (view === 'groups') renderGroups();
   if (view === 'games') renderGames();
@@ -1890,7 +1896,13 @@ const PACK_PRODUCTS = [
 ];
 let packProduct = 'pack';
 function curProduct() { return PACK_PRODUCTS.find(p => p.id === packProduct) || PACK_PRODUCTS[0]; }
-function setPackProduct(id) { packProduct = id; renderPacks(); }
+function setPackProduct(id) { packProduct = id; renderPacks(); syncPackTabs(); }
+// which of the two tabs lights up follows the chosen product size
+function syncPackTabs() {
+  const inPacks = document.body.classList.contains('packs-view');
+  document.getElementById('tabPacks').classList.toggle('active', inPacks && packProduct === 'pack');
+  document.getElementById('tabBoxes').classList.toggle('active', inPacks && packProduct !== 'pack');
+}
 // odds of at least one, across however many packs the product holds
 function overPacks(perPack, packs) { return 1 - Math.pow(1 - perPack, packs); }
 // old sets leave basic energies with no rarity at all — they fill the energy
