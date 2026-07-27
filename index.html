@@ -1697,11 +1697,13 @@ function setView(view) {
   document.getElementById('tabPacks').classList.toggle('active', view === 'packs');
   document.getElementById('tabBoxes').classList.toggle('active', view === 'boxes');
   if (view === 'packs') {
-    packProduct = 'pack';                       // Packs tab is always single-pack odds
+    packProduct = 'pack';   // Packs tab is always single-pack odds
+    customProd = null;
+    if (openBoxIdx != null) { openPackId = null; packCards = []; } // don't inherit the box's open set
     if (!packSets.length) loadPackSets(); else renderPacks();
   }
   if (view === 'boxes') {
-    if (packProduct === 'pack') packProduct = 'box';   // boxes view is never a single pack
+    if (openBoxIdx != null) customProd = { label: REAL_BOXES[openBoxIdx].name, packs: REAL_BOXES[openBoxIdx].packs, unit: 'boxes', extras: REAL_BOXES[openBoxIdx].extras };
     if (!packSets.length) loadPackSets(); else renderBoxes();
   }
   if (view === 'favs') renderFavs();
@@ -1986,7 +1988,61 @@ const PACK_PRODUCTS = [
 
 ];
 let packProduct = 'pack';
-function curProduct() { return PACK_PRODUCTS.find(p => p.id === packProduct) || PACK_PRODUCTS[0]; }
+let customProd = null; // set while a real named box is open
+function curProduct() { return customProd || PACK_PRODUCTS.find(p => p.id === packProduct) || PACK_PRODUCTS[0]; }
+
+/* real sealed products, contents researched from official listings */
+const REAL_BOXES = [
+  { name: 'Prismatic Evolutions Super-Premium Collection', setId: 'sv8pt5', packs: 15, year: 2025, priceUsd: 150,
+    star: 'Eevee ex Stellar Tera promo — the big one',
+    extras: ['15 Prismatic Evolutions booster packs', '⭐ Eevee ex special foil promo card',
+             'Fuzzy Eevee deck box', 'Playmat with Eevee & all its evolutions',
+             '65 card sleeves', 'Pokémon TCG Live code'] },
+  { name: 'Prismatic Evolutions Elite Trainer Box', setId: 'sv8pt5', packs: 9, year: 2025, priceUsd: 110,
+    star: 'Full-art foil Eevee promo card',
+    extras: ['9 Prismatic Evolutions booster packs', '⭐ Full-art foil Eevee promo',
+             '65 card sleeves', '45 Energy cards', '6 damage-counter dice',
+             'Coin-flip die + 2 condition markers', 'Player guide, storage box + 4 dividers'] },
+  { name: 'Prismatic Evolutions Booster Bundle', setId: 'sv8pt5', packs: 6, year: 2025, priceUsd: 27,
+    star: 'Just the packs — cheapest way in',
+    extras: ['6 Prismatic Evolutions booster packs'] },
+  { name: '151 Ultra-Premium Collection', setId: 'sv3pt5', packs: 16, year: 2023, priceUsd: 120,
+    star: 'Metal Mew ex card',
+    extras: ['16 pokemon 151 booster packs', '⭐ Metal Mew ex card',
+             'Etched Mew ex + full-art Mewtwo promos', 'Playmat + deck box',
+             'Mew coin, damage dice + condition markers', 'Pokémon TCG Live code'] },
+  { name: '151 Elite Trainer Box', setId: 'sv3pt5', packs: 9, year: 2023, priceUsd: 55,
+    star: 'Snorlax full-art promo',
+    extras: ['9 pokemon 151 booster packs', '⭐ Full-art foil Snorlax promo',
+             '65 card sleeves', '45 Energy cards', '6 damage-counter dice',
+             'Coin-flip die + condition markers', 'Player guide + storage box'] },
+  { name: '151 Booster Bundle', setId: 'sv3pt5', packs: 6, year: 2023, priceUsd: 30,
+    star: 'Just the packs',
+    extras: ['6 pokemon 151 booster packs'] },
+  { name: 'Celebrations Ultra-Premium Collection', setId: 'cel25', packs: 17, year: 2021, priceUsd: 120,
+    star: 'Metal Base Set Pikachu + Charizard cards',
+    extras: ['17 Celebrations booster packs (+8 bonus packs from other sets)',
+             '⭐ 2 metal cards: Base Set Pikachu & Charizard',
+             'Gold Pikachu V + gold Poké Ball cards', 'Charizard & Pikachu enamel pin',
+             'Metal coin + player guide'] },
+  { name: 'Crown Zenith Elite Trainer Box', setId: 'swsh12pt5', packs: 10, year: 2023, priceUsd: 55,
+    star: 'Etched Lucario VSTAR promo',
+    extras: ['10 Crown Zenith booster packs', '⭐ Etched foil Lucario VSTAR promo',
+             '65 Lucario card sleeves', '45 Energy cards', '6 damage-counter dice',
+             'Coin-flip die + condition markers', 'Player guide + storage box'] },
+  { name: 'Evolving Skies Booster Box', setId: 'swsh7', packs: 36, year: 2021, priceUsd: 380,
+    star: 'Home of Moonbreon — the most hunted modern card',
+    extras: ['36 Evolving Skies booster packs'] },
+  { name: 'Surging Sparks Booster Box', setId: 'sv8', packs: 36, year: 2024, priceUsd: 160,
+    star: 'Pikachu ex SIR chase',
+    extras: ['36 Surging Sparks booster packs'] },
+  { name: 'Phantasmal Flames Booster Box', setId: 'me2', packs: 36, year: 2025, priceUsd: 160,
+    star: 'Mega Charizard X ex chase',
+    extras: ['36 Phantasmal Flames booster packs'] },
+  { name: 'Base Set Booster Box', setId: 'base1', packs: 36, year: 1999, priceUsd: 40000,
+    star: 'The legend — sealed ones sell for a fortune',
+    extras: ['36 Base Set booster packs (11 cards each)'] }
+];
 function setPackProduct(id) { packProduct = id; renderBoxes(); }
 // odds of at least one, across however many packs the product holds
 function overPacks(perPack, packs) { return 1 - Math.pow(1 - perPack, packs); }
@@ -2055,26 +2111,32 @@ function fmtOdds(perPack) {
   if (n <= 1) return { pct, one: 'in most ' + prod.unit };
   return { pct, one: '1 in ' + n.toLocaleString() + ' ' + prod.unit };
 }
-function productPickerHtml() {
-  // sealed products only — single packs live on the Packs tab
-  return `<div class="langs" style="margin-bottom:12px">
-    ${PACK_PRODUCTS.filter(p => p.packs > 1).map(p => `<button class="lang-btn ${packProduct === p.id ? 'active' : ''}"
-      onclick="setPackProduct('${p.id}')">${esc(p.label)} · ${p.packs} packs</button>`).join('')}
-  </div>`;
-}
-
-/* ---- boxes: sealed products, what's inside them, and box-level odds ---- */
-let openBoxId = null;
-function openBox(id) {
-  openBoxId = id;
+/* ---- boxes: real named sealed products with their true contents ---- */
+let openBoxIdx = null;
+function openBox(i) {
+  openBoxIdx = i;
+  const b = REAL_BOXES[i];
+  customProd = { label: b.name, packs: b.packs, unit: 'boxes', extras: b.extras };
   renderBoxes();
-  if (!packCards.length || openPackId !== id) openPack(id, true);
+  if (!packCards.length || openPackId !== b.setId) openPack(b.setId);
 }
-function closeBox() { openBoxId = null; renderBoxes(); }
+function closeBox() { openBoxIdx = null; customProd = null; renderBoxes(); }
 
+let boxRates = null; // for showing typical prices in the chosen currency
+function boxPrice(usd) {
+  if (!usd) return '';
+  if (boxRates && boxRates[curCode]) return curFmt(usd * boxRates[curCode]);
+  return '$' + usd.toLocaleString();
+}
 function renderBoxes() {
   const el = document.getElementById('boxes');
-  if (packSetsLoading) { el.innerHTML = '<div class="tcg-status">Loading every box...</div>'; return; }
+  if (!boxRates) {
+    getRates().then(r => {
+      boxRates = r;
+      if (r && document.body.classList.contains('boxes-view')) renderBoxes();
+    });
+  }
+  if (packSetsLoading) { el.innerHTML = '<div class="tcg-status">Loading the boxes...</div>'; return; }
   if (!packSets.length) {
     el.innerHTML = `<div class="tcg-status">Could not load boxes.<br><br>
       <button class="lang-btn active" onclick="loadPackSets()">Try again</button></div>`;
@@ -2082,8 +2144,9 @@ function renderBoxes() {
   }
 
   // ---- one box open ----
-  if (openBoxId) {
-    const set = packSets.find(s => s.id === openBoxId);
+  if (openBoxIdx != null) {
+    const b = REAL_BOXES[openBoxIdx];
+    const set = packSets.find(s => s.id === b.setId);
     const prod = curProduct();
     const head = `
       <button class="back-btn" onclick="closeBox()">&larr; All boxes</button>
@@ -2091,17 +2154,17 @@ function renderBoxes() {
         <div class="box-lid"></div>
         <div style="padding:16px 16px 0">
           ${set?.images?.logo ? `<img src="${set.images.logo}" alt="">` : ''}
-          <div class="box-title" style="font-size:19px">${esc(set?.name || '')} ${esc(prod.label)}</div>
-          <div class="box-sub">${set?.releaseDate || ''} · ${set?.total || '?'} cards in the set</div>
+          <div class="box-title" style="font-size:19px">${esc(b.name)}</div>
+          <div class="box-sub">⭐ ${esc(b.star)}</div>
+          <div class="box-sub">${b.year} · typical price about ${boxPrice(b.priceUsd)}</div>
           <span class="box-packs">${prod.packs} packs inside</span>
         </div>
-      </div>
-      ${productPickerHtml()}`;
+      </div>`;
 
     if (packLoading) { el.innerHTML = head + '<div class="tcg-status">Opening the box...</div>'; return; }
     if (!packCards.length) {
       el.innerHTML = head + `<div class="tcg-status">Could not open this box.<br><br>
-        <button class="lang-btn active" onclick="openPack('${openBoxId}', true)">Try again</button></div>`;
+        <button class="lang-btn active" onclick="openPack('${b.setId}')">Try again</button></div>`;
       return;
     }
 
@@ -2155,30 +2218,27 @@ function renderBoxes() {
     return;
   }
 
-  // ---- box list ----
-  const q = packQuery.toLowerCase();
-  const list = q ? packSets.filter(s => s.name.toLowerCase().includes(q)) : packSets;
-  const prod = curProduct();
+  // ---- box list: the real products ----
   el.innerHTML = `
     <div class="quiz-box" style="text-align:center">
       <h2>📦 Boxes</h2>
-      <div class="quiz-score">Sealed boxes — open one to see what's inside and your odds</div>
-      ${productPickerHtml()}
-      <input class="cmp-pick" style="max-width:340px; padding:9px 14px; border:1.5px solid #ccc; border-radius:10px; font-size:14px"
-             placeholder="Search a box..." value="${esc(packQuery)}"
-             oninput="packQuery=this.value; renderBoxes(); const i=document.querySelector('#boxes input'); i.focus(); i.setSelectionRange(i.value.length,i.value.length);">
+      <div class="quiz-score">Real sealed boxes — open one to see exactly what's inside and your odds</div>
     </div>
     <div class="box-grid">
-      ${list.map(s => `
-        <div class="box-tile" onclick="openBox('${s.id}')">
+      ${REAL_BOXES.map((b, i) => {
+        const set = packSets.find(s => s.id === b.setId);
+        return `
+        <div class="box-tile" onclick="openBox(${i})">
           <div class="box-lid"></div>
           <div class="box-face">
-            <img loading="lazy" src="${s.images?.logo || ''}" alt="${esc(s.name)}">
-            <div class="box-title">${esc(s.name)}</div>
-            <div class="box-sub">${esc(prod.label)}</div>
-            <span class="box-packs">${prod.packs} packs</span>
+            <img loading="lazy" src="${set?.images?.logo || ''}" alt="${esc(b.name)}">
+            <div class="box-title">${esc(b.name)}</div>
+            <div class="box-sub">⭐ ${esc(b.star)}</div>
+            <div class="box-sub">${b.year} · ~${boxPrice(b.priceUsd)}</div>
+            <span class="box-packs">${b.packs} packs</span>
           </div>
-        </div>`).join('') || '<div class="tcg-status" style="grid-column:1/-1">No box with that name.</div>'}
+        </div>`;
+      }).join('')}
     </div>`;
 }
 
