@@ -1880,7 +1880,19 @@ const PACK_ODDS = {          // expected copies of that rarity per pack
   'Rare ACE': 0.02, 'ACE SPEC Rare': 0.03, 'Rare BREAK': 0.04, 'LEGEND': 0.02,
   'Promo': 0
 };
-const BOX_PACKS = 36;
+// what you can buy: a single pack, or a sealed product holding several
+const PACK_PRODUCTS = [
+  { id: 'pack',   label: '1 pack',                    packs: 1,  unit: 'packs'   },
+  { id: 'bundle', label: 'Booster bundle · 6 packs',  packs: 6,  unit: 'bundles' },
+  { id: 'etb',    label: 'Elite Trainer Box · 9 packs', packs: 9, unit: 'ETBs'   },
+  { id: 'box',    label: 'Booster box · 36 packs',    packs: 36, unit: 'boxes'   }
+
+];
+let packProduct = 'pack';
+function curProduct() { return PACK_PRODUCTS.find(p => p.id === packProduct) || PACK_PRODUCTS[0]; }
+function setPackProduct(id) { packProduct = id; renderPacks(); }
+// odds of at least one, across however many packs the product holds
+function overPacks(perPack, packs) { return 1 - Math.pow(1 - perPack, packs); }
 // old sets leave basic energies with no rarity at all — they fill the energy
 // slot, so they are near-guaranteed, not chase cards
 const NO_RARITY_ODDS = 1;
@@ -1930,11 +1942,24 @@ function cardPackOdds(card, rarityCounts) {
   const sameRarity = rarityCounts[card.rarity] || 1;
   return Math.min(slot / sameRarity, 1);
 }
-function fmtOdds(p) {
-  if (p <= 0) return { pct: 'not in packs', one: 'promo / special product' };
+function fmtOdds(perPack) {
+  if (perPack <= 0) return { pct: 'not in packs', one: 'promo / special product' };
+  const prod = curProduct();
+  const p = overPacks(perPack, prod.packs);
+  if (p >= 0.999) return { pct: '~100%', one: 'basically guaranteed' };
   const pct = p >= 0.01 ? (p * 100).toFixed(1) + '%' : (p * 100).toFixed(2) + '%';
-  return { pct, one: '1 in ' + Math.round(1 / p).toLocaleString() + ' packs' };
+  const n = Math.round(1 / p);
+  // "1 in 1 boxes" reads badly — say it plainly instead
+  if (n <= 1) return { pct, one: 'in most ' + prod.unit };
+  return { pct, one: '1 in ' + n.toLocaleString() + ' ' + prod.unit };
 }
+function productPickerHtml() {
+  return `<div class="langs" style="margin-bottom:12px">
+    ${PACK_PRODUCTS.map(p => `<button class="lang-btn ${packProduct === p.id ? 'active' : ''}"
+      onclick="setPackProduct('${p.id}')">${esc(p.label)}</button>`).join('')}
+  </div>`;
+}
+
 /* big view of a pack. The card database only ships official set artwork —
    the art printed on the wrapper — not photos of sealed products, so we show
    that big and link out to real product photos. */
@@ -1995,14 +2020,21 @@ function renderPacks() {
       .map((c, i) => ({ c, i, p: cardPackOdds(c, rarityCounts) }))
       .sort((a, b) => a.p - b.p); // rarest first = the cards worth chasing
     const best = scored.filter(s => s.p > 0 && (PACK_ODDS[s.c.rarity] ?? 99) <= CHASE_MAX_SLOT);
-    const chaseChance = 1 - best.reduce((acc, s) => acc * (1 - s.p), 1);
+    const chasePerPack = 1 - best.reduce((acc, s) => acc * (1 - s.p), 1);
     const maxP = scored[scored.length - 1]?.p || 1;
+    const prod = curProduct();
+    const chaseShown = overPacks(chasePerPack, prod.packs);
+    const expected = chasePerPack * prod.packs;
 
-    el.innerHTML = head + `
+    el.innerHTML = head + productPickerHtml() + `
       <div class="quiz-box" style="margin-bottom:14px; text-align:center">
-        <div class="coll-value">${(chaseChance * 100).toFixed(1)}%</div>
-        <div class="coll-sub">chance of a hit (holo rare or better) in any single pack<br>
-          about ${(chaseChance * BOX_PACKS).toFixed(1)} of them in a ${BOX_PACKS}-pack box</div>
+        <div class="coll-value">${(chaseShown * 100).toFixed(1)}%</div>
+        <div class="coll-sub">
+          ${prod.packs === 1
+            ? 'chance of a hit (holo rare or better) in a single pack'
+            : `chance of at least one hit (holo rare or better) in a ${esc(prod.label.split(' · ')[0])}<br>
+               about ${expected.toFixed(1)} hits expected in its ${prod.packs} packs`}
+        </div>
       </div>
       <div class="dex-title">Every card — rarest first. Tap one to see what it's worth.</div>
       ${scored.map(s => {
@@ -2035,8 +2067,10 @@ function renderPacks() {
   const list = q ? packSets.filter(s => s.name.toLowerCase().includes(q)) : packSets;
   el.innerHTML = `
     <div class="quiz-box" style="text-align:center">
-      <h2>🎴 Packs</h2>
+      <h2>🎴 Packs &amp; Boxes</h2>
       <div class="quiz-score">${packSets.length} booster sets — pick one to see what's inside and your odds</div>
+      ${productPickerHtml()}
+      <div class="price-note" style="margin:-6px 0 10px">Odds below are worked out for: <b>${esc(curProduct().label)}</b></div>
       <input class="cmp-pick" style="max-width:340px; padding:9px 14px; border:1.5px solid #ccc; border-radius:10px; font-size:14px"
              placeholder="Search a pack..." value="${esc(packQuery)}"
              oninput="packQuery=this.value; renderPacks(); const i=document.querySelector('#packs input'); i.focus(); i.setSelectionRange(i.value.length,i.value.length);">
