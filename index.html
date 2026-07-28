@@ -1248,15 +1248,51 @@
     border-radius: 8px;
     filter: drop-shadow(0 10px 18px rgba(0,0,0,0.7));
   }
-  .inside-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .inside-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
   .inside-item {
     background: #fff;
     border: 1px solid #eee;
     border-radius: 10px;
     padding: 10px 12px;
     font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .inside-item b { display: block; font-size: 17px; color: #188038; }
+  .inside-ico { width: 38px; height: 46px; object-fit: contain; flex-shrink: 0; border-radius: 3px; }
+  .inside-emoji { font-size: 22px; width: 30px; text-align: center; flex-shrink: 0; }
+
+  /* the opened box page wears the same skin as its tile */
+  .box-page {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #14141c;
+    padding: 6px 16px 20px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.4);
+  }
+  .box-page > * { position: relative; z-index: 1; }
+  .box-page .box-bg, .box-page .box-scrim { position: absolute; inset: 0; z-index: 0; }
+  .box-scrim.page { background: rgba(0,0,0,0.76); }
+  .box-page .dex-title { color: #fff; }
+  .box-page .inside-item {
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.18);
+    color: #fff;
+  }
+  .box-page .inside-item b { color: #7ee2a8; }
+  .box-page .odds-row { border-bottom-color: rgba(255,255,255,0.13); }
+  .box-page .odds-row:hover { background: rgba(255,255,255,0.08); }
+  .box-page .odds-name b { color: #fff; }
+  .box-page .odds-name span { color: rgba(255,255,255,0.62); }
+  .box-page .odds-num b { color: #7ee2a8; }
+  .box-page .odds-num span { color: rgba(255,255,255,0.58); }
+  .box-page .odds-bar { background: rgba(255,255,255,0.18); }
+  .box-page .odds-bar > div { background: #7ee2a8; }
+  .box-page .price-note { color: rgba(255,255,255,0.6); }
+  .box-page .card-price { color: #7ee2a8; }
+  .box-page .subtitle { color: rgba(255,255,255,0.7); }
 
   /* ---- phone layout: scrollable tab strip, filters behind a menu button ---- */
   #menuBtn { display: none; }
@@ -2157,6 +2193,40 @@ function fmtOdds(perPack) {
 // real product photo of the sealed box, straight from the shop's image CDN
 function boxPhoto(id) { return `https://product-images.tcgplayer.com/fit-in/437x437/${id}.jpg`; }
 
+// photo of a single booster pack from each set (verified product ids)
+const PACK_PHOTOS = {
+  'sv8pt5': 593294, 'sv3pt5': 504467, 'swsh12pt5': 453466,
+  'me2': 654144, 'swsh7': 244337, 'base1': 138130, 'sv8': 565604
+};
+// a little picture for each line of the box contents
+function insideIcon(text, b) {
+  const t = text.toLowerCase();
+  if (t.includes('promo') && b.promos) return { img: promoImg(b.promos[0]) };
+  if (t.includes('booster pack') && PACK_PHOTOS[b.setId]) return { img: boxPhoto(PACK_PHOTOS[b.setId]) };
+  if (t.includes('booster pack')) return { emoji: '🎴' };
+  if (t.includes('sleeve')) return { emoji: '🃏' };
+  if (t.includes('energy')) return { emoji: '⚡' };
+  if (t.includes('dice') || t.includes('die')) return { emoji: '🎲' };
+  if (t.includes('coin')) return { emoji: '🪙' };
+  if (t.includes('playmat')) return { emoji: '🟩' };
+  if (t.includes('deck box') || t.includes('storage')) return { emoji: '📦' };
+  if (t.includes('guide')) return { emoji: '📖' };
+  if (t.includes('code')) return { emoji: '💻' };
+  if (t.includes('pin')) return { emoji: '📌' };
+  if (t.includes('metal')) return { emoji: '🥇' };
+  if (t.includes('marker')) return { emoji: '🔖' };
+  if (t.includes('card')) return { emoji: '🎴' };
+  return { emoji: '▪️' };
+}
+function insideItemHtml(text, b) {
+  const ic = insideIcon(text, b);
+  return `<div class="inside-item">
+    ${ic.img ? `<img class="inside-ico" loading="lazy" src="${ic.img}" alt="">`
+             : `<span class="inside-emoji">${ic.emoji}</span>`}
+    <span>${esc(text)}</span>
+  </div>`;
+}
+
 /* the actual promo cards that come in the boxes */
 function promoImg(id) {
   const dash = id.indexOf('-');
@@ -2175,6 +2245,24 @@ async function openPromoCard(id) {
   const c = await getPromoCard(id);
   if (c) openBuyCard(c.name, -1, 0, 'en', null, c);
 }
+/* The US and EU price feeds sometimes disagree wildly on promos (one of the
+   two is mismatched data). Show the spread rather than picking a side. */
+function promoWorth(c, rates) {
+  if (!rates || !rates[curCode]) return 'promo — price varies';
+  const vals = [];
+  const eur = c.cardmarket?.prices?.trendPrice;
+  if (eur != null && rates.EUR) vals.push(eur * rates[curCode] / rates.EUR);
+  for (const pr of Object.values(c.tcgplayer?.prices || {})) {
+    if (pr.market != null) { vals.push(pr.market * rates[curCode]); break; }
+  }
+  if (!vals.length) return 'promo — price varies';
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  if (vals.length > 1 && hi / lo > 2) {
+    return `worth ${curFmt(lo)} – ${curFmt(hi)}<br><span style="opacity:.7">US and EU prices disagree</span>`;
+  }
+  return 'worth ' + curFmt((lo + hi) / 2);
+}
+
 // fill in what each promo is worth once prices arrive
 async function fillPromoPrices(boxIdx) {
   const b = REAL_BOXES[boxIdx];
@@ -2185,8 +2273,7 @@ async function fillPromoPrices(boxIdx) {
     const elp = document.getElementById('promo-' + id);
     if (!elp || openBoxIdx !== boxIdx) return;
     if (c) {
-      const v = cardValue(c, rates);
-      elp.innerHTML = `<b>${esc(c.name)}</b><br>${v != null ? 'worth ' + curFmt(v) : 'promo — price varies'}`;
+      elp.innerHTML = `<b>${esc(c.name)}</b><br>${promoWorth(c, rates)}`;
     }
   }
 }
@@ -2271,6 +2358,8 @@ function renderBoxes() {
       .reduce((acc, s) => acc * (1 - s.p), 1);
 
     el.innerHTML = head + `
+      <div class="box-page">
+      ${b.img ? `<div class="box-bg" style="background-image:url('${boxPhoto(b.img)}')"></div><div class="box-scrim page"></div>` : ''}
       ${b.promos ? `
       <div class="dex-title">⭐ The promo card${b.promos.length > 1 ? 's' : ''} you get — guaranteed in the box</div>
       <div class="scan-row" style="align-items:flex-start">
@@ -2283,13 +2372,13 @@ function renderBoxes() {
       </div>` : ''}
       <div class="dex-title">What's inside</div>
       <div class="inside-grid">
-        ${prod.extras.map(x => `<div class="inside-item">${esc(x)}</div>`).join('')}
-        <div class="inside-item"><b>~${prod.packs * 10}</b>cards in total</div>
-        <div class="inside-item"><b>${(chasePerPack * prod.packs).toFixed(1)}</b>hits expected</div>
+        ${prod.extras.map(x => insideItemHtml(x, b)).join('')}
+        <div class="inside-item"><span class="inside-emoji">🗂️</span><span><b>~${prod.packs * 10}</b>cards in total</span></div>
+        <div class="inside-item"><span class="inside-emoji">✨</span><span><b>${(chasePerPack * prod.packs).toFixed(1)}</b>hits expected</span></div>
       </div>
       <div class="dex-title">Expect to pull about</div>
       <div class="inside-grid">
-        ${expected.map(x => `<div class="inside-item"><b>${x.n < 1 ? x.n.toFixed(2) : x.n.toFixed(1)}</b>${esc(x.r)}</div>`).join('')}
+        ${expected.map(x => `<div class="inside-item"><span><b>${x.n < 1 ? x.n.toFixed(2) : x.n.toFixed(1)}</b>${esc(x.r)}</span></div>`).join('')}
       </div>
       <div class="dex-title">Every card — rarest first. Tap one to see what it's worth.</div>
       ${scored.map(s => {
@@ -2308,6 +2397,7 @@ function renderBoxes() {
       <div class="price-note" style="margin-top:12px">
         Odds are estimates from community-reported pull rates — the real ones are never published.
         Box contents vary by product and region.
+      </div>
       </div>`;
     fillPromoPrices(openBoxIdx);
     return;
