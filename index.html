@@ -1171,6 +1171,15 @@
   }
   .box-face { padding: 14px 14px 0; text-align: center; position: relative; }
   .box-face img { width: 100%; height: 72px; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.55)); }
+  .box-face img.box-photo {
+    height: 155px;
+    width: auto;
+    max-width: 94%;
+    border-radius: 6px;
+    background: #fff;
+    padding: 5px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.55);
+  }
   .box-title { color: #fff; font-weight: 800; font-size: 14.5px; margin-top: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.6); }
   .box-sub { color: rgba(255,255,255,0.72); font-size: 12px; margin-top: 3px; }
   .box-packs {
@@ -1205,6 +1214,16 @@
     box-shadow: 0 10px 26px rgba(0,0,0,0.4);
   }
   .box-hero img { width: 100%; max-width: 330px; height: 96px; object-fit: contain; filter: drop-shadow(0 4px 7px rgba(0,0,0,0.6)); }
+  .box-hero img.hero-photo {
+    height: 210px;
+    width: auto;
+    max-width: 90%;
+    border-radius: 8px;
+    background: #fff;
+    padding: 6px;
+    filter: none;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  }
   .inside-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .inside-item {
     background: #fff;
@@ -1993,53 +2012,53 @@ function curProduct() { return customProd || PACK_PRODUCTS.find(p => p.id === pa
 
 /* real sealed products, contents researched from official listings */
 const REAL_BOXES = [
-  { name: 'Prismatic Evolutions Super-Premium Collection', setId: 'sv8pt5', packs: 15, year: 2025, priceUsd: 150,
+  { name: 'Prismatic Evolutions Super-Premium Collection', setId: 'sv8pt5', img: 622770, packs: 15, year: 2025, priceUsd: 150, promos: ['svp-174'],
     star: 'Eevee ex Stellar Tera promo — the big one',
     extras: ['15 Prismatic Evolutions booster packs', '⭐ Eevee ex special foil promo card',
              'Fuzzy Eevee deck box', 'Playmat with Eevee & all its evolutions',
              '65 card sleeves', 'Pokémon TCG Live code'] },
-  { name: 'Prismatic Evolutions Elite Trainer Box', setId: 'sv8pt5', packs: 9, year: 2025, priceUsd: 110,
+  { name: 'Prismatic Evolutions Elite Trainer Box', setId: 'sv8pt5', img: 593355, packs: 9, year: 2025, priceUsd: 110, promos: ['svp-173'],
     star: 'Full-art foil Eevee promo card',
     extras: ['9 Prismatic Evolutions booster packs', '⭐ Full-art foil Eevee promo',
              '65 card sleeves', '45 Energy cards', '6 damage-counter dice',
              'Coin-flip die + 2 condition markers', 'Player guide, storage box + 4 dividers'] },
-  { name: 'Prismatic Evolutions Booster Bundle', setId: 'sv8pt5', packs: 6, year: 2025, priceUsd: 27,
+  { name: 'Prismatic Evolutions Booster Bundle', setId: 'sv8pt5', img: 600518, packs: 6, year: 2025, priceUsd: 27,
     star: 'Just the packs — cheapest way in',
     extras: ['6 Prismatic Evolutions booster packs'] },
-  { name: '151 Ultra-Premium Collection', setId: 'sv3pt5', packs: 16, year: 2023, priceUsd: 120,
+  { name: '151 Ultra-Premium Collection', setId: 'sv3pt5', img: 502005, packs: 16, year: 2023, priceUsd: 120, promos: ['svp-53','svp-52'],
     star: 'Metal Mew ex card',
     extras: ['16 pokemon 151 booster packs', '⭐ Metal Mew ex card',
              'Etched Mew ex + full-art Mewtwo promos', 'Playmat + deck box',
              'Mew coin, damage dice + condition markers', 'Pokémon TCG Live code'] },
-  { name: '151 Elite Trainer Box', setId: 'sv3pt5', packs: 9, year: 2023, priceUsd: 55,
+  { name: '151 Elite Trainer Box', setId: 'sv3pt5', img: 503313, packs: 9, year: 2023, priceUsd: 55, promos: ['svp-51'],
     star: 'Snorlax full-art promo',
     extras: ['9 pokemon 151 booster packs', '⭐ Full-art foil Snorlax promo',
              '65 card sleeves', '45 Energy cards', '6 damage-counter dice',
              'Coin-flip die + condition markers', 'Player guide + storage box'] },
-  { name: '151 Booster Bundle', setId: 'sv3pt5', packs: 6, year: 2023, priceUsd: 30,
+  { name: '151 Booster Bundle', setId: 'sv3pt5', img: 502000, packs: 6, year: 2023, priceUsd: 30,
     star: 'Just the packs',
     extras: ['6 pokemon 151 booster packs'] },
-  { name: 'Celebrations Ultra-Premium Collection', setId: 'cel25', packs: 17, year: 2021, priceUsd: 120,
+  { name: 'Celebrations Ultra-Premium Collection', setId: 'cel25', img: 245140, packs: 17, year: 2021, priceUsd: 120,
     star: 'Metal Base Set Pikachu + Charizard cards',
     extras: ['17 Celebrations booster packs (+8 bonus packs from other sets)',
              '⭐ 2 metal cards: Base Set Pikachu & Charizard',
              'Gold Pikachu V + gold Poké Ball cards', 'Charizard & Pikachu enamel pin',
              'Metal coin + player guide'] },
-  { name: 'Crown Zenith Elite Trainer Box', setId: 'swsh12pt5', packs: 10, year: 2023, priceUsd: 55,
+  { name: 'Crown Zenith Elite Trainer Box', setId: 'swsh12pt5', img: 453470, packs: 10, year: 2023, priceUsd: 55, promos: ['swshp-SWSH291'],
     star: 'Etched Lucario VSTAR promo',
     extras: ['10 Crown Zenith booster packs', '⭐ Etched foil Lucario VSTAR promo',
              '65 Lucario card sleeves', '45 Energy cards', '6 damage-counter dice',
              'Coin-flip die + condition markers', 'Player guide + storage box'] },
-  { name: 'Evolving Skies Booster Box', setId: 'swsh7', packs: 36, year: 2021, priceUsd: 380,
+  { name: 'Evolving Skies Booster Box', setId: 'swsh7', img: 242436, packs: 36, year: 2021, priceUsd: 380,
     star: 'Home of Moonbreon — the most hunted modern card',
     extras: ['36 Evolving Skies booster packs'] },
-  { name: 'Surging Sparks Booster Box', setId: 'sv8', packs: 36, year: 2024, priceUsd: 160,
+  { name: 'Surging Sparks Booster Box', setId: 'sv8', img: 565606, packs: 36, year: 2024, priceUsd: 160,
     star: 'Pikachu ex SIR chase',
     extras: ['36 Surging Sparks booster packs'] },
-  { name: 'Phantasmal Flames Booster Box', setId: 'me2', packs: 36, year: 2025, priceUsd: 160,
+  { name: 'Phantasmal Flames Booster Box', setId: 'me2', img: 654137, packs: 36, year: 2025, priceUsd: 160,
     star: 'Mega Charizard X ex chase',
     extras: ['36 Phantasmal Flames booster packs'] },
-  { name: 'Base Set Booster Box', setId: 'base1', packs: 36, year: 1999, priceUsd: 40000,
+  { name: 'Base Set Booster Box', setId: 'base1', img: 185731, packs: 36, year: 1999, priceUsd: 40000,
     star: 'The legend — sealed ones sell for a fortune',
     extras: ['36 Base Set booster packs (11 cards each)'] }
 ];
@@ -2111,6 +2130,43 @@ function fmtOdds(perPack) {
   if (n <= 1) return { pct, one: 'in most ' + prod.unit };
   return { pct, one: '1 in ' + n.toLocaleString() + ' ' + prod.unit };
 }
+// real product photo of the sealed box, straight from the shop's image CDN
+function boxPhoto(id) { return `https://product-images.tcgplayer.com/fit-in/437x437/${id}.jpg`; }
+
+/* the actual promo cards that come in the boxes */
+function promoImg(id) {
+  const dash = id.indexOf('-');
+  return `https://images.pokemontcg.io/${id.slice(0, dash)}/${id.slice(dash + 1)}.png`;
+}
+const promoCardCache = {};
+async function getPromoCard(id) {
+  if (!promoCardCache[id]) {
+    promoCardCache[id] = fetchWithRetry(`https://api.pokemontcg.io/v2/cards/${id}`)
+      .then(j => j.data)
+      .catch(() => { delete promoCardCache[id]; return null; });
+  }
+  return promoCardCache[id];
+}
+async function openPromoCard(id) {
+  const c = await getPromoCard(id);
+  if (c) openBuyCard(c.name, -1, 0, 'en', null, c);
+}
+// fill in what each promo is worth once prices arrive
+async function fillPromoPrices(boxIdx) {
+  const b = REAL_BOXES[boxIdx];
+  if (!b.promos) return;
+  const rates = await getRates();
+  for (const id of b.promos) {
+    const c = await getPromoCard(id);
+    const elp = document.getElementById('promo-' + id);
+    if (!elp || openBoxIdx !== boxIdx) return;
+    if (c) {
+      const v = cardValue(c, rates);
+      elp.innerHTML = `<b>${esc(c.name)}</b><br>${v != null ? 'worth ' + curFmt(v) : 'promo — price varies'}`;
+    }
+  }
+}
+
 /* ---- boxes: real named sealed products with their true contents ---- */
 let openBoxIdx = null;
 function openBox(i) {
@@ -2153,7 +2209,10 @@ function renderBoxes() {
       <div class="box-hero" style="text-align:center">
         <div class="box-lid"></div>
         <div style="padding:16px 16px 0">
-          ${set?.images?.logo ? `<img src="${set.images.logo}" alt="">` : ''}
+          ${b.img
+            ? `<img class="hero-photo" src="${boxPhoto(b.img)}" alt="${esc(b.name)}"
+                   onerror="this.onerror=null; this.classList.remove('hero-photo'); this.src='${set?.images?.logo || ''}'">`
+            : (set?.images?.logo ? `<img src="${set.images.logo}" alt="">` : '')}
           <div class="box-title" style="font-size:19px">${esc(b.name)}</div>
           <div class="box-sub">⭐ ${esc(b.star)}</div>
           <div class="box-sub">${b.year} · typical price about ${boxPrice(b.priceUsd)}</div>
@@ -2187,6 +2246,16 @@ function renderBoxes() {
       .reduce((acc, s) => acc * (1 - s.p), 1);
 
     el.innerHTML = head + `
+      ${b.promos ? `
+      <div class="dex-title">⭐ The promo card${b.promos.length > 1 ? 's' : ''} you get — guaranteed in the box</div>
+      <div class="scan-row" style="align-items:flex-start">
+        ${b.promos.map(id => `
+          <div style="text-align:center; max-width:150px">
+            <img src="${promoImg(id)}" alt="promo" style="width:150px; border-radius:8px; cursor:pointer;
+                 box-shadow:0 4px 10px rgba(0,0,0,0.3)" onclick="openPromoCard('${id}')">
+            <div class="card-price" id="promo-${id}">loading price...</div>
+          </div>`).join('')}
+      </div>` : ''}
       <div class="dex-title">What's inside</div>
       <div class="inside-grid">
         ${prod.extras.map(x => `<div class="inside-item">${esc(x)}</div>`).join('')}
@@ -2215,6 +2284,7 @@ function renderBoxes() {
         Odds are estimates from community-reported pull rates — the real ones are never published.
         Box contents vary by product and region.
       </div>`;
+    fillPromoPrices(openBoxIdx);
     return;
   }
 
@@ -2231,7 +2301,10 @@ function renderBoxes() {
         <div class="box-tile" onclick="openBox(${i})">
           <div class="box-lid"></div>
           <div class="box-face">
-            <img loading="lazy" src="${set?.images?.logo || ''}" alt="${esc(b.name)}">
+            ${b.img
+              ? `<img class="box-photo" loading="lazy" src="${boxPhoto(b.img)}" alt="${esc(b.name)}"
+                     onerror="this.onerror=null; this.classList.remove('box-photo'); this.src='${set?.images?.logo || ''}'">`
+              : `<img loading="lazy" src="${set?.images?.logo || ''}" alt="${esc(b.name)}">`}
             <div class="box-title">${esc(b.name)}</div>
             <div class="box-sub">⭐ ${esc(b.star)}</div>
             <div class="box-sub">${b.year} · ~${boxPrice(b.priceUsd)}</div>
