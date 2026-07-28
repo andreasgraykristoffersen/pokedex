@@ -1154,10 +1154,27 @@
     padding: 0 0 14px;
     cursor: pointer;
     overflow: hidden;
-    background: linear-gradient(160deg, #3b3b52, #191922 70%);
+    background: #14141c;
     box-shadow: 0 10px 22px rgba(0,0,0,0.38), inset 0 -3px 8px rgba(0,0,0,0.5);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     transform-style: preserve-3d;
+  }
+  /* the box's own art, blurred behind it, so every tile wears its box colours */
+  .box-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(20px) saturate(1.5) brightness(0.62);
+    transform: scale(1.25);
+    z-index: 0;
+  }
+  /* darkens the lower half so the text stays readable on any artwork */
+  .box-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0.78) 100%);
+    z-index: 0;
   }
   .box-tile:hover {
     transform: translateY(-7px) rotateX(7deg) scale(1.02);
@@ -1165,20 +1182,23 @@
   }
   /* the box's top face, catching the light */
   .box-lid {
+    position: relative;
+    z-index: 1;
     height: 18px;
     background: linear-gradient(180deg, rgba(255,255,255,0.34), rgba(255,255,255,0.06));
     border-bottom: 1px solid rgba(0,0,0,0.35);
   }
-  .box-face { padding: 14px 14px 0; text-align: center; position: relative; }
+  .box-face { padding: 14px 14px 0; text-align: center; position: relative; z-index: 1; }
   .box-face img { width: 100%; height: 72px; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.55)); }
+  /* the box floats free — no white card behind it, just its own shadow */
   .box-face img.box-photo {
-    height: 155px;
+    height: 158px;
     width: auto;
-    max-width: 94%;
+    max-width: 96%;
+    background: none;
+    padding: 0;
     border-radius: 6px;
-    background: #fff;
-    padding: 5px;
-    box-shadow: 0 6px 14px rgba(0,0,0,0.55);
+    filter: drop-shadow(0 8px 12px rgba(0,0,0,0.65));
   }
   .box-title { color: #fff; font-weight: 800; font-size: 14.5px; margin-top: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.6); }
   .box-sub { color: rgba(255,255,255,0.72); font-size: 12px; margin-top: 3px; }
@@ -1203,26 +1223,30 @@
     transform: skewX(-18deg);
     transition: left 0.55s ease;
     pointer-events: none;
+    z-index: 2;
   }
   .box-tile:hover::after { left: 120%; }
   .box-hero {
-    background: linear-gradient(160deg, #3b3b52, #191922 70%);
+    position: relative;
+    background: #14141c;
     border-radius: 12px;
     padding: 0 0 18px;
     overflow: hidden;
     margin-bottom: 14px;
     box-shadow: 0 10px 26px rgba(0,0,0,0.4);
   }
+  .box-hero > * { position: relative; z-index: 1; }
+  /* must re-assert absolute — the rule above would otherwise unstick the backdrop */
+  .box-hero .box-bg, .box-hero .box-scrim { position: absolute; inset: 0; z-index: 0; }
   .box-hero img { width: 100%; max-width: 330px; height: 96px; object-fit: contain; filter: drop-shadow(0 4px 7px rgba(0,0,0,0.6)); }
   .box-hero img.hero-photo {
-    height: 210px;
+    height: 215px;
     width: auto;
-    max-width: 90%;
+    max-width: 92%;
+    background: none;
+    padding: 0;
     border-radius: 8px;
-    background: #fff;
-    padding: 6px;
-    filter: none;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,0.7));
   }
   .inside-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .inside-item {
@@ -2207,6 +2231,7 @@ function renderBoxes() {
     const head = `
       <button class="back-btn" onclick="closeBox()">&larr; All boxes</button>
       <div class="box-hero" style="text-align:center">
+        ${b.img ? `<div class="box-bg" style="background-image:url('${boxPhoto(b.img)}')"></div><div class="box-scrim"></div>` : ''}
         <div class="box-lid"></div>
         <div style="padding:16px 16px 0">
           ${b.img
@@ -2299,6 +2324,7 @@ function renderBoxes() {
         const set = packSets.find(s => s.id === b.setId);
         return `
         <div class="box-tile" onclick="openBox(${i})">
+          ${b.img ? `<div class="box-bg" style="background-image:url('${boxPhoto(b.img)}')"></div><div class="box-scrim"></div>` : ''}
           <div class="box-lid"></div>
           <div class="box-face">
             ${b.img
