@@ -4,11 +4,11 @@ A Pokédex web app in one HTML file. No install — open `index.html` in a brows
 
 ## Open it
 
-- **https://da.gd/pkedex**
-- **https://tinyurl.com/pkedex**
+**https://pokedex-70k.pages.dev/**
 
-Both are short links with no name in them. They redirect to the live site, so the
-address bar shows the full GitHub Pages URL once the page loads.
+Hosted on Cloudflare Pages, redeploys automatically on every push to `main`.
+
+Also live at https://andreasgraykristoffersen.github.io/pokedex/ (GitHub Pages).
 
 ## Features
 
@@ -58,18 +58,10 @@ the site owner can create:
 Every change then saves to your Google account automatically and loads on any
 device where you sign in.
 
-## A URL with no name in the address bar (optional)
+## Hosting
 
-The short links above redirect, so the long URL still appears once loaded. To get
-a clean address that stays clean, pick one:
+Cloudflare Pages watches this repo and rebuilds on every push to `main`
+(framework preset none, no build command, output directory `/`). GitHub Pages
+serves the same files as a backup.
 
-**Cloudflare Pages — free, gives `pkedex.pages.dev`**
-1. Sign up at https://dash.cloudflare.com/sign-up
-2. **Workers & Pages → Create → Pages → Connect to Git**
-3. Pick this repo, set project name to `pkedex`
-4. Framework preset **None**, build command empty, output directory `/`
-5. **Save and Deploy** — redeploys automatically on every push
-
-**Rename the GitHub account** — changing the username to e.g. `pkedex` makes the
-site `pkedex.github.io/pokedex`. Free, but it breaks every existing link to any
-of the account's repos.
+Short link: https://da.gd/pkedex2
