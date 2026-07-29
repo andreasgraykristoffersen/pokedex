@@ -2837,14 +2837,34 @@ async function getRepoDirHandle(forcePick) {
     return handle;
   } catch (e) { return null; } // user cancelled, or any storage/permission hiccup
 }
-async function writeTaskDirect(text, forcePick) {
+async function readRepoFile(name, forcePick) {
+  try {
+    const dir = await getRepoDirHandle(forcePick);
+    if (!dir) return null;
+    const fh = await dir.getFileHandle(name, { create: false });
+    return await (await fh.getFile()).text();
+  } catch (e) { return null; }
+}
+async function writeRepoFile(name, content, create) {
+  try {
+    const dir = await getRepoDirHandle();
+    if (!dir) return false;
+    const fh = await dir.getFileHandle(name, { create: !!create });
+    const w = await fh.createWritable();
+    await w.write(content);
+    await w.close();
+    return true;
+  } catch (e) { return false; }
+}
+// append one line to a repo file (REQUESTS.md for pending, TASKS.md once approved)
+async function appendRepoLine(name, text, forcePick) {
   try {
     const dir = await getRepoDirHandle(forcePick);
     if (!dir) return false;
-    const fh = await dir.getFileHandle('TASKS.md', { create: false });
-    const file = await fh.getFile();
-    let content = await file.text();
-    if (!content.endsWith('\n')) content += '\n';
+    const fh = await dir.getFileHandle(name, { create: true });
+    let content = '';
+    try { content = await (await fh.getFile()).text(); } catch (e) {}
+    if (content && !content.endsWith('\n')) content += '\n';
     content += text + '\n';
     const w = await fh.createWritable();
     await w.write(content);
@@ -2853,27 +2873,30 @@ async function writeTaskDirect(text, forcePick) {
   } catch (e) { return false; } // wrong folder picked, or write failed
 }
 
+/* Anyone may send a request — it only lands in REQUESTS.md, which nothing acts
+   on. The owner then approves with the code, moving it into TASKS.md where the
+   auto-update agent picks it up. */
 function openRequestUpdate() {
-  const code = prompt('Enter your code:');
-  if (code === null) return;
-  if (code !== REQUEST_CODE) { alert('Wrong code.'); return; }
   document.querySelector('.detail').classList.remove('wide');
   const canDirect = !!window.showDirectoryPicker;
   const body = document.getElementById('detailBody');
   body.innerHTML = `
     <h2>Request an update</h2>
     <p class="subtitle" style="text-align:center; margin:8px 0 14px">
-      Type what you want changed or added. The auto-update agent checks for
-      it every minute and gets to work.
+      Type what you want changed or added. It waits for the owner to approve
+      before anything happens.
       ${canDirect
-        ? 'First time on this device, it\'ll ask you to pick the <b>pokedex</b> folder once — after that, requests save instantly with no extra step.'
+        ? 'First time on this device it asks you to pick the <b>pokedex</b> folder once.'
         : 'This browser will open a pre-filled request on GitHub — one click there to send it.'}
     </p>
     <textarea id="reqText" rows="5" style="width:100%; padding:10px; border:1.5px solid #ccc;
       border-radius:10px; font-size:14px; font-family:inherit; resize:vertical"
       placeholder="e.g. add a dark mode toggle"></textarea>
     <button class="moves-btn" style="margin-top:10px" onclick="sendRequestUpdate()">Send request</button>
-    ${canDirect ? '<div class="price-note" style="text-align:center">Picked the wrong folder before? <a href="#" onclick="event.preventDefault(); sendRequestUpdate(true)">Choose folder again</a></div>' : ''}
+    <div class="price-note" style="text-align:center; margin-top:10px">
+      Owner? <a href="#" onclick="event.preventDefault(); openApprove()">Approve waiting requests</a>
+      ${canDirect ? ' · <a href="#" onclick="event.preventDefault(); sendRequestUpdate(true)">Choose folder again</a>' : ''}
+    </div>
   `;
   document.getElementById('modal').classList.add('open');
 }
@@ -2881,11 +2904,11 @@ async function sendRequestUpdate(forcePick) {
   const text = document.getElementById('reqText').value.trim();
   if (!text) return;
   if (window.showDirectoryPicker) {
-    const ok = await writeTaskDirect(text, forcePick);
+    const ok = await appendRepoLine('REQUESTS.md', '- ' + text, forcePick);
     if (ok) {
-      const body = document.getElementById('detailBody');
-      body.innerHTML = `<h2>Sent ✓</h2><p class="subtitle" style="text-align:center">
-        Saved to TASKS.md — the agent picks it up within a minute.</p>`;
+      document.getElementById('detailBody').innerHTML =
+        `<h2>Sent ✓</h2><p class="subtitle" style="text-align:center">
+          Waiting for the owner to approve it.</p>`;
       return;
     }
     // fall through to GitHub if the folder picker was cancelled/wrong folder
@@ -2896,6 +2919,64 @@ async function sendRequestUpdate(forcePick) {
     + '&labels=task-request';
   window.open(url, '_blank');
   closeModal();
+}
+
+/* owner-only: code gate, then approve or reject what's waiting */
+let pendingReqs = [];
+async function openApprove() {
+  const code = prompt('Owner code:');
+  if (code === null) return;
+  if (code !== REQUEST_CODE) { alert('Wrong code.'); return; }
+  const body = document.getElementById('detailBody');
+  body.innerHTML = '<h2>Waiting requests</h2><div class="tcg-status">Reading requests...</div>';
+  const raw = await readRepoFile('REQUESTS.md');
+  if (raw === null) {
+    body.innerHTML = `<h2>Waiting requests</h2>
+      <p class="subtitle" style="text-align:center">Could not read REQUESTS.md — pick the
+      <b>pokedex</b> folder when asked.</p>
+      <button class="moves-btn" onclick="openApprove()">Try again</button>`;
+    return;
+  }
+  pendingReqs = raw.split('\n').filter(l => l.trim().startsWith('- ')).map(l => l.trim().slice(2).trim());
+  renderApprove();
+}
+function renderApprove() {
+  const body = document.getElementById('detailBody');
+  if (!pendingReqs.length) {
+    body.innerHTML = `<h2>Waiting requests</h2>
+      <p class="subtitle" style="text-align:center">Nothing waiting.</p>`;
+    return;
+  }
+  body.innerHTML = `<h2>Waiting requests</h2>
+    <p class="subtitle" style="text-align:center; margin-bottom:12px">
+      Approve sends it to the agent. Reject throws it away.</p>
+    ${pendingReqs.map((t, i) => `
+      <div class="store">
+        <div style="flex:1">${esc(t)}</div>
+        <div>
+          <a href="#" style="color:#188038" onclick="event.preventDefault(); decideReq(${i}, true)">Approve</a>
+          <a href="#" style="color:#c0392b" onclick="event.preventDefault(); decideReq(${i}, false)">Reject</a>
+        </div>
+      </div>`).join('')}`;
+}
+async function decideReq(i, approve) {
+  const text = pendingReqs[i];
+  if (text === undefined) return;
+  if (approve && !(await appendRepoLine('TASKS.md', text))) {
+    alert('Could not write TASKS.md — nothing changed.');
+    return;
+  }
+  pendingReqs.splice(i, 1);
+  // rewrite the queue without the one just handled
+  const header = `# Pending requests
+
+Anyone can send a request from the app — they land here and do nothing yet.
+The owner approves them with the code, which moves them into TASKS.md where
+the auto-update agent picks them up.
+
+`;
+  await writeRepoFile('REQUESTS.md', header + pendingReqs.map(t => '- ' + t).join('\n') + (pendingReqs.length ? '\n' : ''), true);
+  renderApprove();
 }
 
 /* ---- backup: save and load everything you own and saved ---- */
