@@ -39,7 +39,7 @@
   .pokeball {
     width: 36px; height: 36px;
     border-radius: 50%;
-    background: linear-gradient(to bottom, #fff 0 45%, #1b1b1b 45% 55%, #e3350d 55% 100%);
+    background: linear-gradient(to bottom, #fff 0 45%, #1b1b1b 45% 55%, var(--red) 55% 100%);
     transform: rotate(180deg);
     border: 2px solid #1b1b1b;
     position: relative;
@@ -373,6 +373,37 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .catch-btn.on { color: var(--red); }
+  .pin-btn {
+    position: absolute;
+    top: 6px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    border: none;
+    background: rgba(255,255,255,0.92);
+    color: #c5c5c5;
+    border-radius: 50%;
+    width: 26px; height: 26px;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .pin-btn.on { color: var(--red); transform: translateX(-50%) rotate(0deg); }
+  .card.pinned { outline: 2px solid var(--red); outline-offset: -2px; }
+
+  /* rearrange tabs: click one tab then another to swap them */
+  body.rearrange-mode .tabs .tab { cursor: grab; }
+  .tabs .tab.rearrange-selected { outline: 2px dashed #fff; outline-offset: 2px; }
+
+  /* theme customize panel */
+  .theme-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px; }
+  .theme-row input[type="color"] {
+    width: 48px; height: 32px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+    background: none;
+  }
   .console-row {
     grid-column: 1 / -1;
     display: flex;
@@ -1313,11 +1344,13 @@
     .tabs .tab { flex-shrink: 0; padding: 7px 12px; font-size: 13px; }
     #search { order: 6; width: 100%; margin-left: 0; }
     /* everything else lives behind the ⚙ Menu button */
-    header select, #shinyBtn, #darkBtn, #reqBtn { display: none; }
+    header select, #shinyBtn, #darkBtn, #reqBtn, #themeBtn, #rearrangeBtn { display: none; }
     body.menu-open header select,
     body.menu-open #shinyBtn,
     body.menu-open #darkBtn,
-    body.menu-open #reqBtn { display: block; order: 7; width: 100%; }
+    body.menu-open #reqBtn,
+    body.menu-open #themeBtn,
+    body.menu-open #rearrangeBtn { display: block; order: 7; width: 100%; }
     #grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 12px; }
     #cards, #favs, #groups, #coll, #trainers, #games { padding: 12px; }
     #quiz, #finder, #compare { padding: 12px; }
@@ -1463,6 +1496,8 @@
   </select>
   <button class="tab" id="shinyBtn" onclick="toggleShiny()">✨ Shiny</button>
   <button class="tab" id="darkBtn" onclick="toggleDark()">🌙 Dark mode</button>
+  <button class="tab" id="themeBtn" onclick="openThemePanel()">🎨 Customize</button>
+  <button class="tab" id="rearrangeBtn" onclick="toggleRearrange()">🧩 Rearrange tabs</button>
   <select id="cbSel" title="colour blindness">
     <option value="">Colour: normal</option>
     <option value="prot">Red-blind (protanopia)</option>
@@ -1565,6 +1600,119 @@ function toggleDark() {
   applyDark();
 }
 applyDark();
+
+/* ---- make it yours: colours, tab order, pinned pokemon ---- */
+const THEME_FIELDS = [
+  { key: 'red',  label: 'Header & buttons', def: '#e3350d' },
+  { key: 'bg',   label: 'Page background',  def: '#f2f2f2' },
+  { key: 'card', label: 'Card background',  def: '#ffffff' },
+  { key: 'dark', label: 'Dark accents',     def: '#1b1b1b' }
+];
+let theme = {};
+try { theme = JSON.parse(localStorage.getItem('pokedex-theme') || '{}'); } catch (e) {}
+function applyTheme() {
+  THEME_FIELDS.forEach(f => {
+    document.documentElement.style.setProperty('--' + f.key, theme[f.key] || f.def);
+  });
+}
+function setThemeColor(key, val) {
+  theme[key] = val;
+  localStorage.setItem('pokedex-theme', JSON.stringify(theme));
+  applyTheme();
+}
+function resetTheme() {
+  theme = {};
+  localStorage.removeItem('pokedex-theme');
+  applyTheme();
+  openThemePanel();
+}
+applyTheme();
+
+function openThemePanel() {
+  document.querySelector('.detail').classList.remove('wide');
+  document.getElementById('detailBody').innerHTML = `
+    <h2>🎨 Customize</h2>
+    <p class="subtitle" style="text-align:center; margin:6px 0 10px">
+      Pick your own colours. Saved on this device.</p>
+    ${darkMode ? `<div class="price-note" style="text-align:center; margin-bottom:8px">
+      Dark mode is on, so it decides the page and card shades — turn it off to
+      see those two colours take effect.</div>` : ''}
+    ${THEME_FIELDS.map(f => `
+      <label class="theme-row">
+        <span>${f.label}</span>
+        <input type="color" value="${theme[f.key] || f.def}"
+               oninput="setThemeColor('${f.key}', this.value)">
+      </label>`).join('')}
+    <button class="moves-btn" style="margin-top:12px" onclick="resetTheme()">Reset to default colours</button>
+    <div class="price-note" style="text-align:center; margin-top:10px">
+      Tabs can be reordered with <b>🧩 Rearrange tabs</b>, and Pokémon pinned with 📌 on their card.
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+/* tab order — click one tab then another to swap them */
+let rearranging = false, swapFrom = null;
+const TAB_IDS = ['tabDex','tabCards','tabFavs','tabGroups','tabGames','tabTrainers',
+                 'tabColl','tabQuiz','tabFinder','tabCompare','tabPacks','tabBoxes'];
+function applyTabOrder() {
+  let order = [];
+  try { order = JSON.parse(localStorage.getItem('pokedex-taborder') || '[]'); } catch (e) {}
+  const box = document.querySelector('.tabs');
+  // only move tabs that still exist, then let any new ones stay where they are
+  order.filter(id => TAB_IDS.includes(id)).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) box.appendChild(el);
+  });
+  const login = document.getElementById('loginBtn');
+  if (login) box.appendChild(login); // sign-in always sits last
+}
+function saveTabOrder() {
+  const ids = [...document.querySelectorAll('.tabs .tab')].map(b => b.id).filter(id => TAB_IDS.includes(id));
+  localStorage.setItem('pokedex-taborder', JSON.stringify(ids));
+}
+function toggleRearrange() {
+  rearranging = !rearranging;
+  swapFrom = null;
+  document.body.classList.toggle('rearrange-mode', rearranging);
+  document.getElementById('rearrangeBtn').classList.toggle('active', rearranging);
+  document.querySelectorAll('.tabs .tab').forEach(b => b.classList.remove('rearrange-selected'));
+  if (rearranging) alert('Tap one tab, then another, to swap them. Tap "Rearrange tabs" again when done.');
+}
+// runs before each tab's own click handler, and stops it while rearranging
+document.querySelector('.tabs').addEventListener('click', e => {
+  if (!rearranging) return;
+  const btn = e.target.closest('.tab');
+  if (!btn || !TAB_IDS.includes(btn.id)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (!swapFrom) {
+    swapFrom = btn;
+    btn.classList.add('rearrange-selected');
+    return;
+  }
+  if (swapFrom !== btn) {
+    // swap the two buttons in place
+    const marker = document.createElement('span');
+    swapFrom.replaceWith(marker);
+    btn.replaceWith(swapFrom);
+    marker.replaceWith(btn);
+    saveTabOrder();
+  }
+  swapFrom.classList.remove('rearrange-selected');
+  swapFrom = null;
+}, true);
+applyTabOrder();
+
+/* pinned pokemon float to the top of the Pokédex */
+let pinnedMon = [];
+try { pinnedMon = JSON.parse(localStorage.getItem('pokedex-pinned') || '[]'); } catch (e) {}
+function togglePinMon(id, btn, ev) {
+  if (ev) ev.stopPropagation();
+  const i = pinnedMon.indexOf(id);
+  if (i >= 0) pinnedMon.splice(i, 1); else pinnedMon.push(id);
+  localStorage.setItem('pokedex-pinned', JSON.stringify(pinnedMon));
+  render();
+}
 
 /* ---- pokemon names in chosen language ---- */
 let nameLang = 'en';
@@ -1710,7 +1858,11 @@ function currentList() {
     const matchG = !gen || (p.id >= gen.from && p.id <= gen.to);
     const matchC = !cf || (cf === 'caught') === caught.includes(p.id);
     return matchQ && matchT && matchG && matchC;
-  }).sort(sortFn());
+  }).sort((a, b) => {
+    // pinned pokemon float to the top; everything else keeps the chosen sort
+    const pinDiff = (pinnedMon.includes(b.id) ? 1 : 0) - (pinnedMon.includes(a.id) ? 1 : 0);
+    return pinDiff || sortFn()(a, b);
+  });
 }
 
 // pokedex sorting picked in the header
@@ -1730,9 +1882,10 @@ function render() {
   const list = currentList();
   const grid = document.getElementById('grid');
   grid.innerHTML = list.map(p => `
-    <div class="card" onclick="openDetail(${p.id})">
+    <div class="card ${pinnedMon.includes(p.id) ? 'pinned' : ''}" onclick="openDetail(${p.id})">
       <button class="fav-btn ${favMon.includes(p.id) ? 'on' : ''}" onclick="toggleFavMon(${p.id}, this, event)">♥</button>
       <button class="catch-btn ${caught.includes(p.id) ? 'on' : ''}" title="caught?" onclick="toggleCaught(${p.id}, this, event)">◓</button>
+      <button class="pin-btn ${pinnedMon.includes(p.id) ? 'on' : ''}" title="pin to top" onclick="togglePinMon(${p.id}, this, event)">📌</button>
       <img loading="lazy" src="${sprUrl(p)}" onerror="this.src='${p.sprites.front_default || ''}'" alt="${p.name}">
       <div class="num">#${String(p.id).padStart(3, '0')}</div>
       <div class="name">${displayName(p)}</div>
