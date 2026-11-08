@@ -1,0 +1,250 @@
+{
+ "checkedAt": "2026-11-08T12:28:56.315Z",
+ "boxPrices": {
+  "updated": "2026-11-07T20:05:27+0000",
+  "found": 12,
+  "of": 12
+ },
+ "coverage": {
+  "mainNewest": {
+   "name": "30th Celebration: Classic Collection",
+   "date": "2026/09/16"
+  },
+  "newest": {
+   "id": "me06",
+   "name": "Delta Reign",
+   "releaseDate": "2026-11-06",
+   "cards": 141,
+   "withImages": 0
+  },
+  "extraSets": [
+   {
+    "id": "miscp",
+    "name": "Miscellaneous Promos",
+    "cards": 1,
+    "official": 1
+   },
+   {
+    "id": "wp",
+    "name": "W Promotional",
+    "cards": 7,
+    "official": 7
+   },
+   {
+    "id": "jumbo",
+    "name": "Jumbo cards",
+    "cards": 160,
+    "official": 160
+   },
+   {
+    "id": "sp",
+    "name": "Sample",
+    "cards": 10,
+    "official": 10
+   },
+   {
+    "id": "ex5.5",
+    "name": "Poké Card Creator Pack",
+    "cards": 5,
+    "official": 5
+   },
+   {
+    "id": "exu",
+    "name": "Unseen Forces Unown Collection",
+    "cards": 28,
+    "official": 28
+   },
+   {
+    "id": "tk-dp-l",
+    "name": "DP trainer Kit (Lucario)",
+    "cards": 11,
+    "official": 11
+   },
+   {
+    "id": "tk-dp-m",
+    "name": "DP trainer Kit (Manaphy)",
+    "cards": 12,
+    "official": 12
+   },
+   {
+    "id": "tk-hs-r",
+    "name": "HS trainer Kit (Raichu)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-hs-g",
+    "name": "HS trainer Kit (Gyarados)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-bw-z",
+    "name": "BW trainer Kit (Zoroark)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-bw-e",
+    "name": "BW trainer Kit (Excadrill)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "xya",
+    "name": "Yellow A Alternate",
+    "cards": 6,
+    "official": 6
+   },
+   {
+    "id": "tk-xy-sy",
+    "name": "XY trainer Kit (Sylveon)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-n",
+    "name": "XY trainer Kit (Noivern)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-b",
+    "name": "XY trainer Kit (Bisharp)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-w",
+    "name": "XY trainer Kit (Wigglytuff)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-latio",
+    "name": "XY trainer Kit (Latios)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-latia",
+    "name": "XY trainer Kit (Latias)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-su",
+    "name": "XY trainer Kit (Suicune)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-xy-p",
+    "name": "XY trainer Kit (Pikachu Libre)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-sm-l",
+    "name": "SM trainer Kit (Lycanroc)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "tk-sm-r",
+    "name": "SM trainer Kit (Alolan Raichu)",
+    "cards": 30,
+    "official": 30
+   },
+   {
+    "id": "2023sv",
+    "name": "McDonald's Collection 2023",
+    "cards": 15,
+    "official": 15
+   },
+   {
+    "id": "mfb",
+    "name": "My First Battle",
+    "cards": 48,
+    "official": 48
+   },
+   {
+    "id": "2024sv",
+    "name": "McDonald's Collection 2024",
+    "cards": 15,
+    "official": 15
+   },
+   {
+    "id": "mee",
+    "name": "Mega Evolution Energy",
+    "cards": 16,
+    "official": 16
+   },
+   {
+    "id": "mep",
+    "name": "MEP Black Star Promos",
+    "cards": 112,
+    "official": 0
+   },
+   {
+    "id": "me06",
+    "name": "Delta Reign",
+    "cards": 141,
+    "official": 103
+   }
+  ],
+  "shortSets": [
+   {
+    "id": "sve",
+    "name": "Scarlet & Violet Energy",
+    "cards": 24,
+    "official": 24,
+    "mainId": "sve",
+    "mainTotal": 8
+   },
+   {
+    "id": "svp",
+    "name": "SVP Black Star Promos",
+    "cards": 226,
+    "official": 225,
+    "mainId": "svp",
+    "mainTotal": 196
+   },
+   {
+    "id": "swshp",
+    "name": "SWSH Black Star Promos",
+    "cards": 307,
+    "official": 307,
+    "mainId": "swshp",
+    "mainTotal": 304
+   },
+   {
+    "id": "det1",
+    "name": "Detective Pikachu",
+    "cards": 19,
+    "official": 18,
+    "mainId": "det1",
+    "mainTotal": 18
+   },
+   {
+    "id": "xy7",
+    "name": "Ancient Origins",
+    "cards": 101,
+    "official": 98,
+    "mainId": "xy7",
+    "mainTotal": 100
+   },
+   {
+    "id": "ecard2",
+    "name": "Aquapolis",
+    "cards": 186,
+    "official": 147,
+    "mainId": "ecard2",
+    "mainTotal": 182
+   }
+  ]
+ },
+ "cardPricesUpdated": "2026-11-07T23:49:42.059Z",
+ "pokemonCount": 1025,
+ "problems": []
+}

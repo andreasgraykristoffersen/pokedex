@@ -58,6 +58,18 @@ the site owner can create:
 Every change then saves to your Google account automatically and loads on any
 device where you sign in.
 
+## Keeping data up to date
+
+- **Card prices** come live from TCGdex (Cardmarket + TCGplayer, updated daily).
+  The main card database lags weeks behind, so its prices are only a fallback.
+- **Missing cards**: sets the main card database lacks (newest set, MEP promos,
+  trainer kits, McDonald's 2023+…) are added to the galleries from TCGdex.
+- **Dex Bot** (🤖 button, bottom right) checks every 6 hours that Pokémon,
+  cards, prices and exchange rates are current, and shows what it found.
+- **Daily robot** (`.github/workflows/data-robot.yml` → `scripts/update-data.mjs`)
+  saves sealed box prices to `data/box-prices.json` and a full check to
+  `data/status.json`. Run it by hand with `node scripts/update-data.mjs`.
+
 ## Hosting
 
 Cloudflare Pages watches this repo and rebuilds on every push to `main`

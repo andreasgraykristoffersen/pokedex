@@ -999,6 +999,74 @@
   .shop-btn.ebay { background: #e53238; }
   .shop-btn.maps { background: #188038; }
   .price-note { font-size: 11.5px; color: #999; margin-top: 8px; }
+  /* gameplay video inside the page */
+  .yt-btn { width: 100%; border: none; cursor: pointer; font-family: inherit; }
+  .yt-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; margin-top: 10px; border-radius: 10px; overflow: hidden; background: #000; }
+  .yt-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .yt-now { font-size: 13px; margin: 8px 0 4px; line-height: 1.35; }
+  .yt-more { font-size: 12.5px; font-weight: 700; margin: 10px 0 6px; }
+  .yt-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .yt-item {
+    display: flex; flex-direction: column; gap: 4px; padding: 0;
+    border: none; background: none; cursor: pointer; text-align: left;
+    font-size: 11.5px; line-height: 1.3; color: inherit; font-family: inherit;
+  }
+  .yt-item img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; image-rendering: auto; height: auto; }
+  .yt-item span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Dex Bot: floating helper that keeps checking the data */
+  #botBtn {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 90;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: var(--red);
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    transition: transform 0.15s;
+  }
+  #botBtn:hover { transform: scale(1.08); }
+  #botDot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: #2f9e44;
+  }
+  #botDot.warn { background: #f08c00; }
+  #botDot.busy { background: #adb5bd; animation: botPulse 1s infinite alternate; }
+  @keyframes botPulse { to { opacity: 0.35; } }
+  .bot-list { list-style: none; margin: 12px 0; padding: 0; }
+  .bot-list li {
+    display: flex;
+    gap: 10px;
+    padding: 9px 4px;
+    border-bottom: 1px solid #eee;
+    font-size: 13.5px;
+    line-height: 1.4;
+  }
+  .bot-list .ic { flex-shrink: 0; width: 20px; text-align: center; }
+  .bot-sub { color: #888; font-size: 12.5px; }
+  .old-price {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #b35c00;
+    background: #fff4e5;
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 4px;
+    text-transform: none;
+  }
   .jumbo-row {
     display: flex;
     align-items: center;
@@ -1521,6 +1589,10 @@
 <div id="compare"></div>
 <div id="packs"></div>
 <div id="boxes"></div>
+
+<button id="botBtn" onclick="openBot()" title="Dex Bot — checks that everything is up to date" aria-label="Dex Bot">
+  🤖<span id="botDot" class="busy"></span>
+</button>
 
 <div id="modal">
   <div class="detail">
@@ -2297,53 +2369,53 @@ function curProduct() { return customProd || PACK_PRODUCTS.find(p => p.id === pa
 
 /* real sealed products, contents researched from official listings */
 const REAL_BOXES = [
-  { name: 'Prismatic Evolutions Super-Premium Collection', setId: 'sv8pt5', img: 622770, packs: 15, year: 2025, priceUsd: 150, promos: ['svp-174'],
+  { name: 'Prismatic Evolutions Super-Premium Collection', setId: 'sv8pt5', img: 622770, packs: 15, year: 2025, priceUsd: 240, promos: ['svp-174'],
     star: 'Eevee ex Stellar Tera promo — the big one',
     extras: ['15 Prismatic Evolutions booster packs', '⭐ Eevee ex special foil promo card',
              'Fuzzy Eevee deck box', 'Playmat with Eevee & all its evolutions',
              '65 card sleeves', 'Pokémon TCG Live code'] },
-  { name: 'Prismatic Evolutions Elite Trainer Box', setId: 'sv8pt5', img: 593355, packs: 9, year: 2025, priceUsd: 110, promos: ['svp-173'],
+  { name: 'Prismatic Evolutions Elite Trainer Box', setId: 'sv8pt5', img: 593355, packs: 9, year: 2025, priceUsd: 115, promos: ['svp-173'],
     star: 'Full-art foil Eevee promo card',
     extras: ['9 Prismatic Evolutions booster packs', '⭐ Full-art foil Eevee promo',
              '65 card sleeves', '45 Energy cards', '6 damage-counter dice',
              'Coin-flip die + 2 condition markers', 'Player guide, storage box + 4 dividers'] },
-  { name: 'Prismatic Evolutions Booster Bundle', setId: 'sv8pt5', img: 600518, packs: 6, year: 2025, priceUsd: 27,
+  { name: 'Prismatic Evolutions Booster Bundle', setId: 'sv8pt5', img: 600518, packs: 6, year: 2025, priceUsd: 69,
     star: 'Just the packs — cheapest way in',
     extras: ['6 Prismatic Evolutions booster packs'] },
-  { name: '151 Ultra-Premium Collection', setId: 'sv3pt5', img: 502005, packs: 16, year: 2023, priceUsd: 120, promos: ['svp-53','svp-52'],
+  { name: '151 Ultra-Premium Collection', setId: 'sv3pt5', img: 502005, packs: 16, year: 2023, priceUsd: 842, promos: ['svp-53','svp-52'],
     star: 'Metal Mew ex card',
     extras: ['16 pokemon 151 booster packs', '⭐ Metal Mew ex card',
              'Etched Mew ex + full-art Mewtwo promos', 'Playmat + deck box',
              'Mew coin, damage dice + condition markers', 'Pokémon TCG Live code'] },
-  { name: '151 Elite Trainer Box', setId: 'sv3pt5', img: 503313, packs: 9, year: 2023, priceUsd: 55, promos: ['svp-51'],
+  { name: '151 Elite Trainer Box', setId: 'sv3pt5', img: 503313, packs: 9, year: 2023, priceUsd: 493, promos: ['svp-51'],
     star: 'Snorlax full-art promo',
     extras: ['9 pokemon 151 booster packs', '⭐ Full-art foil Snorlax promo',
              '65 card sleeves', '45 Energy cards', '6 damage-counter dice',
              'Coin-flip die + condition markers', 'Player guide + storage box'] },
-  { name: '151 Booster Bundle', setId: 'sv3pt5', img: 502000, packs: 6, year: 2023, priceUsd: 30,
+  { name: '151 Booster Bundle', setId: 'sv3pt5', img: 502000, packs: 6, year: 2023, priceUsd: 166,
     star: 'Just the packs',
     extras: ['6 pokemon 151 booster packs'] },
-  { name: 'Celebrations Ultra-Premium Collection', setId: 'cel25', img: 245140, packs: 17, year: 2021, priceUsd: 120,
+  { name: 'Celebrations Ultra-Premium Collection', setId: 'cel25', img: 245140, packs: 17, year: 2021, priceUsd: 1207,
     star: 'Metal Base Set Pikachu + Charizard cards',
     extras: ['17 Celebrations booster packs (+8 bonus packs from other sets)',
              '⭐ 2 metal cards: Base Set Pikachu & Charizard',
              'Gold Pikachu V + gold Poké Ball cards', 'Charizard & Pikachu enamel pin',
              'Metal coin + player guide'] },
-  { name: 'Crown Zenith Elite Trainer Box', setId: 'swsh12pt5', img: 453470, packs: 10, year: 2023, priceUsd: 55, promos: ['swshp-SWSH291'],
+  { name: 'Crown Zenith Elite Trainer Box', setId: 'swsh12pt5', img: 453470, packs: 10, year: 2023, priceUsd: 314, promos: ['swshp-SWSH291'],
     star: 'Etched Lucario VSTAR promo',
     extras: ['10 Crown Zenith booster packs', '⭐ Etched foil Lucario VSTAR promo',
              '65 Lucario card sleeves', '45 Energy cards', '6 damage-counter dice',
              'Coin-flip die + condition markers', 'Player guide + storage box'] },
-  { name: 'Evolving Skies Booster Box', setId: 'swsh7', img: 242436, packs: 36, year: 2021, priceUsd: 380,
+  { name: 'Evolving Skies Booster Box', setId: 'swsh7', img: 242436, packs: 36, year: 2021, priceUsd: 2188,
     star: 'Home of Moonbreon — the most hunted modern card',
     extras: ['36 Evolving Skies booster packs'] },
-  { name: 'Surging Sparks Booster Box', setId: 'sv8', img: 565606, packs: 36, year: 2024, priceUsd: 160,
+  { name: 'Surging Sparks Booster Box', setId: 'sv8', img: 565606, packs: 36, year: 2024, priceUsd: 305,
     star: 'Pikachu ex SIR chase',
     extras: ['36 Surging Sparks booster packs'] },
-  { name: 'Phantasmal Flames Booster Box', setId: 'me2', img: 654137, packs: 36, year: 2025, priceUsd: 160,
+  { name: 'Phantasmal Flames Booster Box', setId: 'me2', img: 654137, packs: 36, year: 2025, priceUsd: 387,
     star: 'Mega Charizard X ex chase',
     extras: ['36 Phantasmal Flames booster packs'] },
-  { name: 'Base Set Booster Box', setId: 'base1', img: 185731, packs: 36, year: 1999, priceUsd: 40000,
+  { name: 'Base Set Booster Box', setId: 'base1', img: 185731, packs: 36, year: 1999, priceUsd: 100000,
     star: 'The legend — sealed ones sell for a fortune',
     extras: ['36 Base Set booster packs (11 cards each)'] }
 ];
@@ -2495,6 +2567,7 @@ async function fillPromoPrices(boxIdx) {
   const rates = await getRates();
   for (const id of b.promos) {
     const c = await getPromoCard(id);
+    if (c) await refreshPrices(c, 'en');
     const elp = document.getElementById('promo-' + id);
     if (!elp || openBoxIdx !== boxIdx) return;
     if (c) {
@@ -2519,6 +2592,28 @@ function boxPrice(usd) {
   if (!usd) return '';
   if (boxRates && boxRates[curCode]) return curFmt(usd * boxRates[curCode]);
   return '$' + usd.toLocaleString();
+}
+/* live sealed-box prices: the daily robot (scripts/update-data.mjs) saves
+   TCGplayer market prices here; priceUsd in REAL_BOXES is only the fallback */
+let boxLive = null;
+fetch('data/box-prices.json', { cache: 'no-cache' })
+  .then(r => r.ok ? r.json() : null)
+  .then(j => {
+    boxLive = j;
+    if (j && document.body.classList.contains('boxes-view')) renderBoxes();
+  })
+  .catch(() => {});
+function boxUsd(b) {
+  const p = boxLive?.prices?.[b.img];
+  return p?.market ?? p?.low ?? b.priceUsd;
+}
+function boxPriceLabel(b) {
+  const p = boxLive?.prices?.[b.img];
+  if (p && p.market == null && p.low != null) return `cheapest listing ${boxPrice(p.low)}`;
+  return `market price ${boxPrice(boxUsd(b))}`;
+}
+function boxPriceDate() {
+  return boxLive?.updated ? `Box prices from TCGplayer, updated ${fmtDay(boxLive.updated)}` : 'Box prices are approximate';
 }
 function renderBoxes() {
   const el = document.getElementById('boxes');
@@ -2552,7 +2647,8 @@ function renderBoxes() {
             : (set?.images?.logo ? `<img src="${set.images.logo}" alt="">` : '')}
           <div class="box-title" style="font-size:19px">${esc(b.name)}</div>
           <div class="box-sub">⭐ ${esc(b.star)}</div>
-          <div class="box-sub">${b.year} · typical price about ${boxPrice(b.priceUsd)}</div>
+          <div class="box-sub">${b.year} · ${boxPriceLabel(b)}</div>
+          <div class="box-sub" style="opacity:.7; font-size:11.5px">${boxPriceDate()}</div>
           <span class="box-packs">${prod.packs} packs inside</span>
         </div>
       </div>`;
@@ -2648,7 +2744,7 @@ function renderBoxes() {
               : `<img loading="lazy" src="${set?.images?.logo || ''}" alt="${esc(b.name)}">`}
             <div class="box-title">${esc(b.name)}</div>
             <div class="box-sub">⭐ ${esc(b.star)}</div>
-            <div class="box-sub">${b.year} · ~${boxPrice(b.priceUsd)}</div>
+            <div class="box-sub">${b.year} · ${boxPriceLabel(b)}</div>
             <span class="box-packs">${b.packs} packs</span>
           </div>
         </div>`;
@@ -3529,17 +3625,19 @@ function cardValue(c, rates) {
   // market price in the chosen currency; cardmarket trend first, else tcgplayer
   if (!rates || !rates[curCode]) return null;
   const eur = c.cardmarket?.prices?.trendPrice;
+  if (useCardmarket(c) && rates.EUR) return eur * rates[curCode] / rates.EUR;
+  const usd = tpMarket(c);
+  if (usd != null) return usd * rates[curCode]; // rates are USD-based
   if (eur != null && rates.EUR) return eur * rates[curCode] / rates.EUR;
-  if (c.tcgplayer?.prices) {
-    for (const pr of Object.values(c.tcgplayer.prices)) {
-      if (pr.market != null) return pr.market * rates[curCode]; // rates are USD-based
-    }
-  }
   return null;
 }
+// 670204.2 -> "670.204,20" (Danish style)
+function numFmt(v, dec) {
+  const [i, d] = v.toFixed(dec).split('.');
+  return i.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (d ? ',' + d : '');
+}
 function curFmt(v) {
-  const dec = curCode === 'JPY' ? 0 : 2;
-  return v.toFixed(dec).replace('.', ',') + ' ' + CURRENCIES[curCode];
+  return numFmt(v, curCode === 'JPY' ? 0 : 2) + ' ' + CURRENCIES[curCode];
 }
 // duplicates allowed: each copy counts, value multiplies
 function ownChange(delta, fromColl, ci) {
@@ -3617,6 +3715,26 @@ async function renderCollection() {
       <div class="price-note">Backup saves collection, favorites, caught and groups — move it to another device and load it there.</div>
     </div>
     ${cardsHtml || '<div class="tcg-status" style="grid-column: 1 / -1">No cards yet — open a card\'s buy page and press "+ I own this card".</div>'}`;
+  refreshCollectionPrices();
+}
+// saved cards carry the prices from the day they were added — refresh them
+let collRefreshAt = 0;
+async function refreshCollectionPrices() {
+  if (!collection.length || Date.now() - collRefreshAt < PRICE_TTL) return;
+  collRefreshAt = Date.now();
+  const queue = collection.slice();
+  let changed = false;
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (queue.length) {
+      const o = queue.shift();
+      const before = o.card.pricesLive;
+      if (await refreshPrices(o.card, o.lang) && o.card.pricesLive !== before) changed = true;
+    }
+  }));
+  if (changed) {
+    saveCollection();
+    if (document.body.classList.contains('coll-view')) renderCollection();
+  }
 }
 
 /* ---- games tab: every main pokemon game, pick console, buy links ---- */
@@ -4473,8 +4591,9 @@ async function openGameGuide(id, version) {
   const ytPhrase = `how to get ${p.name} in pokemon ${prettyGame(version)}`;
   const ytSearch = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ytPhrase);
   how += `
-    <a class="shop-btn ebay" href="${ytSearch}" target="_blank">
-      ▶ Search gameplay videos on YouTube</a>`;
+    <button class="shop-btn ebay yt-btn" data-q="${esc(ytPhrase)}" data-fallback="${esc(ytSearch)}"
+            onclick="playGameVideo(this)">▶ Watch gameplay video</button>
+    <div class="yt-box"></div>`;
 
   const status = body.querySelector('.tcg-status');
   if (status) status.outerHTML = how;
@@ -4691,6 +4810,79 @@ async function openMoves(id) {
 function closeModal() {
   document.getElementById('modal').classList.remove('open');
   document.querySelector('.detail').classList.remove('wide');
+  // hidden modal keeps its content — stop any video so the sound stops too
+  document.querySelectorAll('#detailBody .yt-box').forEach(b => { b.innerHTML = ''; });
+}
+
+/* ---- gameplay videos inside the page ----
+   YouTube search needs an API key, so videos are found through Piped /
+   Invidious (open YouTube front-ends with CORS) and played in YouTube's own
+   embed player. If every finder is down, YouTube search opens instead. */
+const VIDEO_FINDERS = [
+  async q => (await fetchVidJson(`https://api.piped.private.coffee/search?q=${q}&filter=videos`)).items
+    .filter(v => v.url?.includes('watch?v='))
+    .map(v => ({ id: v.url.split('v=')[1].slice(0, 11), title: v.title, author: v.uploaderName })),
+  async q => {
+    const list = await fetchVidJson('https://api.invidious.io/instances.json?sort_by=health');
+    for (const [, i] of list.filter(([, i]) => i.api && i.cors)) {
+      try {
+        const r = await fetchVidJson(`${i.uri}/api/v1/search?q=${q}&type=video`);
+        if (r.length) return r.map(v => ({ id: v.videoId, title: v.title, author: v.author }));
+      } catch (e) { /* next instance */ }
+    }
+    return [];
+  }
+];
+async function fetchVidJson(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 9000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+const videoCache = {};
+async function findVideos(phrase) {
+  if (videoCache[phrase]) return videoCache[phrase];
+  const q = encodeURIComponent(phrase);
+  for (const finder of VIDEO_FINDERS) {
+    try {
+      const vids = (await finder(q)).filter(v => /^[\w-]{11}$/.test(v.id)).slice(0, 6);
+      if (vids.length) return (videoCache[phrase] = vids);
+    } catch (e) { /* try the next finder */ }
+  }
+  return [];
+}
+async function playGameVideo(btn) {
+  const box = btn.nextElementSibling;
+  box.innerHTML = '<div class="tcg-status">Finding videos...</div>';
+  const vids = await findVideos(btn.dataset.q);
+  if (!vids.length) {
+    box.innerHTML = '';
+    window.open(btn.dataset.fallback, '_blank');
+    return;
+  }
+  box.dataset.vids = JSON.stringify(vids);
+  showVideo(box, 0);
+}
+function showVideo(box, i) {
+  const vids = JSON.parse(box.dataset.vids || '[]');
+  const v = vids[i];
+  if (!v) return;
+  box.innerHTML = `
+    <div class="yt-frame">
+      <iframe src="https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&rel=0"
+              title="${esc(v.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowfullscreen></iframe>
+    </div>
+    <div class="yt-now"><b>${esc(v.title)}</b>${v.author ? ' · ' + esc(v.author) : ''}</div>
+    ${vids.length > 1 ? `<div class="yt-more">More videos:</div>
+      <div class="yt-list">${vids.map((o, j) => j === i ? '' : `
+        <button class="yt-item" onclick="showVideo(this.closest('.yt-box'), ${j})">
+          <img src="https://i.ytimg.com/vi/${o.id}/mqdefault.jpg" alt="">
+          <span>${esc(o.title)}</span>
+        </button>`).join('')}</div>` : ''}`;
 }
 
 /* ---- real TCG card gallery ---- */
@@ -4769,7 +4961,8 @@ async function openCardGallery(id, lang = 'en') {
           if (status) status.textContent = `Loading real cards... ${all.length}/${json.totalCount}`;
           if (all.length >= (json.totalCount || 0) || !(json.data || []).length) break;
         }
-        tcgCache[cacheKey] = all;
+        // add cards the main database is missing (new sets, promos, kits)
+        tcgCache[cacheKey] = all.concat(await backupCards(q, all));
       } else {
         const url = `https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(q)}`;
         const list = await fetchWithRetry(url);
@@ -4777,6 +4970,7 @@ async function openCardGallery(id, lang = 'en') {
         tcgCache[cacheKey] = (Array.isArray(list) ? list : [])
           .filter(c => c.image)
           .map(c => ({
+            tcgdexId: c.id, tcgdexLang: lang,
             name: c.name,
             images: { small: c.image + '/low.webp', large: c.image + '/high.webp' },
             set: { name: c.id.replace(/-[^-]+$/, ''), printedTotal: '' },
@@ -4796,14 +4990,9 @@ async function openCardGallery(id, lang = 'en') {
     status.remove();
     // sort choice: cache order is oldest first
     const cards = tcgCache[cacheKey].slice();
-    const priceOf = c => {
-      const eur = c.cardmarket?.prices?.trendPrice;
-      if (eur != null) return eur;
-      if (c.tcgplayer?.prices) {
-        for (const pr of Object.values(c.tcgplayer.prices)) if (pr.market != null) return pr.market * 0.92;
-      }
-      return -1; // unknown price sorts last
-    };
+    const sortRates = (gallerySort === 'exp' || gallerySort === 'cheap') ? await getRates() : null;
+    if (detail.dataset.gallery !== galleryKey) return;
+    const priceOf = c => cardValue(c, sortRates) ?? -1; // unknown price sorts last
     if (gallerySort === 'new') cards.reverse();
     else if (gallerySort === 'exp') cards.sort((a, b) => priceOf(b) - priceOf(a));
     else if (gallerySort === 'cheap') cards.sort((a, b) => { const A = priceOf(a), B = priceOf(b); return ((A < 0) - (B < 0)) || A - B; });
@@ -4860,14 +5049,343 @@ async function fetchWithRetry(url, tries = 3) {
   throw lastErr;
 }
 
+/* ---- fresh card prices ----
+   The main card database (pokemontcg.io) updates TCGplayer prices weeks late
+   and its Cardmarket prices can be a year old (Base Set Charizard showed
+   €4,184 when the real trend was €354). TCGdex carries both shops' prices,
+   updated every day, so every price the app shows is refreshed from there. */
+const TCGDEX = 'https://api.tcgdex.net/v2/en';
+// keep these lists in sync with scripts/update-data.mjs
+const SET_ALIAS = { fut20: 'fut2020', me55c: '30th-c' }; // same set, different names in the two databases
+const isPocketSet = id => /^(A\d|B\d|P-A)/.test(id); // TCG Pocket = phone game, not real cards
+const SKIP_BACKUP = new Set(['rc']); // already inside Legendary Treasures in the main database
+const normSet = s => String(s || '').toLowerCase().replace(/&/g, 'and')
+  .replace(/pokémon|pokemon/g, '').replace(/[^a-z0-9]/g, '');
+// "H01" / "H1", "007" / "7" are the same card number
+const normNum = n => String(n || '').toLowerCase().replace(/^([a-z]*)0+(?=\d)/, '$1');
+function fmtDay(d) {
+  const t = typeof d === 'number' ? d : Date.parse(String(d).replace(/\//g, '-'));
+  return isNaN(t) ? String(d) : new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+const dayMs = d => d ? (Date.parse(String(d).replace(/\//g, '-').slice(0, 10)) || 0) : 0;
+
+let dexSetsPromise = null;
+function getDexSets() {
+  if (!dexSetsPromise) {
+    dexSetsPromise = fetchWithRetry(`${TCGDEX}/sets`).catch(() => { dexSetsPromise = null; return []; });
+  }
+  return dexSetsPromise;
+}
+const dexSetCards = {};
+function getDexSetCards(setId) {
+  if (!dexSetCards[setId]) {
+    dexSetCards[setId] = fetchWithRetry(`${TCGDEX}/sets/${encodeURIComponent(setId)}`)
+      .then(s => s.cards || [])
+      .catch(() => { delete dexSetCards[setId]; return []; });
+  }
+  return dexSetCards[setId];
+}
+function dexSetFor(mainSet, dexSets) {
+  if (!mainSet) return null;
+  return dexSets.find(s => s.id === SET_ALIAS[mainSet.id])
+    || dexSets.find(s => normSet(s.name) === normSet(mainSet.name))
+    || dexSets.find(s => s.id.toLowerCase() === String(mainSet.id || '').toLowerCase());
+}
+async function dexIdFor(c) {
+  if (c.tcgdexId) return c.tcgdexId;
+  const set = dexSetFor(c.set, await getDexSets());
+  if (!set) return null;
+  const hit = (await getDexSetCards(set.id)).find(x => normNum(x.localId) === normNum(c.number));
+  return hit ? hit.id : null;
+}
+
+const PRICE_TTL = 12 * 3600 * 1000;
+const priceMem = {};
+async function dexPricing(id, lang = 'en', fresh = false) {
+  const key = `pokedex-price:${lang}:${id}`;
+  if (!fresh) {
+    if (priceMem[key]) return priceMem[key];
+    try {
+      const s = JSON.parse(localStorage.getItem(key) || 'null');
+      if (s && Date.now() - s.ts < PRICE_TTL) return (priceMem[key] = s.p);
+    } catch (e) { /* storage blocked: just fetch */ }
+  }
+  const card = await fetchWithRetry(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
+  const p = card?.pricing || null;
+  priceMem[key] = p;
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), p })); } catch (e) { /* full: fine */ }
+  return p;
+}
+// pour TCGdex prices into the card in the same shape pokemontcg.io uses
+function applyPricing(c, p) {
+  if (!p) return false;
+  const day = iso => iso ? iso.slice(0, 10).replace(/-/g, '/') : null;
+  let changed = false;
+  const tp = p.tcgplayer;
+  if (tp) {
+    const prices = {};
+    let productId = null;
+    for (const [k, v] of Object.entries(tp)) {
+      if (!v || typeof v !== 'object') continue;
+      productId = productId || v.productId;
+      const market = v.marketPrice ?? v.midPrice;
+      if (market == null) continue;
+      const variant = k.replace(/-([a-z0-9])/g, (_, ch) => ch.toUpperCase());
+      prices[variant] = { low: v.lowPrice, mid: v.midPrice, high: v.highPrice, market };
+    }
+    if (Object.keys(prices).length) {
+      c.tcgplayer = { ...(c.tcgplayer || {}), prices, updatedAt: day(tp.updated),
+        url: c.tcgplayer?.url || (productId ? `https://www.tcgplayer.com/product/${productId}` : undefined) };
+      changed = true;
+    }
+  }
+  const cm = p.cardmarket;
+  if (cm) {
+    // holo-only prints keep their numbers in the "-holo" fields
+    const sfx = cm.trend ? '' : (cm['trend-holo'] ? '-holo' : null);
+    if (sfx != null) {
+      c.cardmarket = { ...(c.cardmarket || {}), updatedAt: day(cm.updated),
+        prices: { trendPrice: cm['trend' + sfx], avg1: cm['avg1' + sfx], avg7: cm['avg7' + sfx],
+                  avg30: cm['avg30' + sfx], lowPrice: cm['low' + sfx], averageSellPrice: cm['avg' + sfx] } };
+      changed = true;
+    }
+  }
+  if (changed) c.pricesLive = Date.now();
+  return changed;
+}
+async function refreshPrices(c, lang = 'en', fresh = false) {
+  if (!fresh && c.pricesLive && Date.now() - c.pricesLive < PRICE_TTL) return true;
+  try {
+    const id = c.tcgdexId || (lang === 'en' ? await dexIdFor(c) : null);
+    if (!id) return false;
+    c.tcgdexId = id;
+    return applyPricing(c, await dexPricing(id, c.tcgdexLang || lang, fresh));
+  } catch (e) { return false; }
+}
+// Cardmarket (EU shop) first — unless its numbers are much older than TCGplayer's
+function tpMarket(c) {
+  for (const pr of Object.values(c.tcgplayer?.prices || {})) if (pr.market != null) return pr.market;
+  return null;
+}
+function useCardmarket(c) {
+  if (c.cardmarket?.prices?.trendPrice == null) return false;
+  if (tpMarket(c) == null) return true;
+  return dayMs(c.cardmarket.updatedAt) >= dayMs(c.tcgplayer?.updatedAt) - 14 * 864e5;
+}
+
+/* ---- missing cards: the main database adds new sets weeks late and lacks
+   some (MEP promos, trainer kits, McDonald's 2023+...). TCGdex has them, so
+   their cards are added to the English galleries. ---- */
+const COVERAGE_TTL = 6 * 3600 * 1000;
+let coveragePromise = null;
+function getCoverage(force = false) {
+  if (force) coveragePromise = null;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('pokedex-coverage') || 'null'); } catch (e) { /* none */ }
+  if (!coveragePromise) coveragePromise = (async () => {
+    if (!force && saved && Date.now() - saved.ts < COVERAGE_TTL) return saved.data;
+    // pokemontcg.io often answers 502 a few times before it works
+    const [main, dexSets] = await Promise.all([
+      fetchWithRetry('https://api.pokemontcg.io/v2/sets?pageSize=250&orderBy=-releaseDate&select=id,name,releaseDate,total', 6),
+      getDexSets()
+    ]);
+    const mainSets = main.data || [];
+    if (!mainSets.length || !dexSets.length) throw new Error('no set lists');
+    const matched = new Set();
+    const shortSets = [];
+    for (const m of mainSets) {
+      const d = dexSetFor(m, dexSets);
+      if (!d) continue;
+      matched.add(d.id);
+      if (d.cardCount.total > m.total) {
+        shortSets.push({ id: d.id, name: d.name, cards: d.cardCount.total, official: d.cardCount.official,
+                         mainId: m.id, mainTotal: m.total });
+      }
+    }
+    const extraSets = dexSets
+      .filter(d => !matched.has(d.id) && !isPocketSet(d.id) && !SKIP_BACKUP.has(d.id))
+      .map(d => ({ id: d.id, name: d.name, cards: d.cardCount.total, official: d.cardCount.official }));
+    // newest real set + whether its pictures are out yet
+    const newestDex = dexSets.filter(d => !isPocketSet(d.id)).at(-1);
+    let newest = null;
+    if (newestDex) {
+      const nd = await fetchWithRetry(`${TCGDEX}/sets/${encodeURIComponent(newestDex.id)}`).catch(() => null);
+      if (nd) newest = { id: nd.id, name: nd.name, releaseDate: nd.releaseDate, cards: nd.cardCount?.total || 0,
+                         withImages: (nd.cards || []).filter(x => x.image).length };
+    }
+    const data = { mainNewest: { name: mainSets[0].name, date: mainSets[0].releaseDate }, newest, extraSets, shortSets };
+    try { localStorage.setItem('pokedex-coverage', JSON.stringify({ ts: Date.now(), data })); } catch (e) { /* ok */ }
+    return data;
+  })().catch(async () => {
+    coveragePromise = null;
+    if (saved) return saved.data; // last good check, even if old
+    // the daily robot saves the same comparison
+    try {
+      const st = await fetch('data/status.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null);
+      if (st?.coverage) return st.coverage;
+    } catch (e) { /* plain file: no robot report */ }
+    return null;
+  });
+  return coveragePromise;
+}
+const NO_PIC = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 245 342"><rect width="245" height="342" rx="12" fill="#e9ecef"/>' +
+  '<text x="122" y="160" font-family="sans-serif" font-size="17" text-anchor="middle" fill="#868e96">No picture</text>' +
+  '<text x="122" y="185" font-family="sans-serif" font-size="17" text-anchor="middle" fill="#868e96">online yet</text></svg>');
+async function backupCards(q, mainCards) {
+  try {
+    const cov = await getCoverage();
+    if (!cov) return [];
+    const sets = new Map([...cov.extraSets, ...cov.shortSets].map(s => [s.id, s]));
+    if (!sets.size) return [];
+    const list = await fetchWithRetry(`${TCGDEX}/cards?name=${encodeURIComponent(q)}`);
+    const have = new Set(mainCards.map(c => (c.set?.id || '') + '|' + normNum(c.number)));
+    const out = [];
+    for (const c of Array.isArray(list) ? list : []) {
+      const setId = c.id.slice(0, c.id.length - String(c.localId).length - 1);
+      const s = sets.get(setId);
+      if (!s) continue;
+      if (s.mainId && have.has(s.mainId + '|' + normNum(c.localId))) continue; // main database has it
+      out.push({
+        id: c.id, tcgdexId: c.id, tcgdexLang: 'en', fromBackup: true,
+        name: c.name,
+        images: c.image ? { small: c.image + '/low.webp', large: c.image + '/high.webp' } : { small: NO_PIC, large: NO_PIC },
+        set: { id: setId, name: s.name, printedTotal: s.official || '' },
+        number: c.localId, rarity: null
+      });
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
+/* ---- Dex Bot: little helper that keeps checking the data is up to date.
+   Runs a few seconds after start and then every 6 hours while the app is open.
+   A robot on GitHub (scripts/update-data.mjs) does the checks a browser can't
+   and leaves its report in data/status.json. ---- */
+const BOT_EVERY = 6 * 3600 * 1000;
+let botReport = null;
+try { botReport = JSON.parse(localStorage.getItem('pokedex-bot') || 'null'); } catch (e) { /* none yet */ }
+let botRunning = false;
+function setBotDot() {
+  const dot = document.getElementById('botDot');
+  if (!dot) return;
+  dot.className = botRunning ? 'busy' : (botReport?.checks?.some(c => c.ok === false) ? 'warn' : '');
+}
+async function runBot(force = false) {
+  if (botRunning) return;
+  botRunning = true;
+  setBotDot();
+  const checks = [];
+  const add = (ok, text, sub) => checks.push({ ok, text, sub });
+  const ago = t => Math.round((Date.now() - t) / 864e5);
+
+  // 1. pokemon: new ones appear by themselves
+  try {
+    const j = await fetch(`${API}/pokemon-species?limit=1`).then(r => r.json());
+    if (allPokemon.length && j.count > allPokemon.length) {
+      add(true, `Found ${j.count - allPokemon.length} new Pokémon — adding them now`, 'Fixed by Dex Bot');
+      TOTAL_COUNT = j.count;
+      fetchAllPokemon(true);
+    } else {
+      add(true, `All ${j.count} Pokémon are in the Pokédex`);
+    }
+  } catch (e) { add(null, 'Could not reach the Pokémon database'); }
+
+  // 2. cards: anything the main card database is missing?
+  const cov = await getCoverage(force);
+  if (cov) {
+    if (cov.newest) {
+      const noPics = cov.newest.cards - cov.newest.withImages;
+      add(true, `Newest card set: ${cov.newest.name} (${fmtDay(cov.newest.releaseDate)}, ${cov.newest.cards} cards)`,
+        noPics > 0 ? `${noPics} cards have no picture online yet — they show "no picture online yet"` : '');
+    }
+    const extraCards = cov.extraSets.reduce((n, s) => n + s.cards, 0);
+    if (cov.extraSets.length) {
+      add(true, `${cov.extraSets.length} sets (${extraCards} cards) are missing from the main card database — added from the backup database`,
+        cov.extraSets.slice(-6).map(s => s.name).join(', ') + (cov.extraSets.length > 6 ? ' and more' : ''));
+    }
+    if (cov.shortSets.length) {
+      add(true, `${cov.shortSets.length} sets had cards missing — the missing ones are added`,
+        cov.shortSets.map(s => `${s.name}: +${s.cards - s.mainTotal}`).join(', '));
+    }
+    add(true, 'Every set is checked against both card databases — nothing is left out');
+  } else add(null, 'Could not check the card databases right now');
+
+  // 3. card prices fresh?
+  try {
+    const p = await dexPricing('sv03.5-199', 'en', true);
+    const upd = p?.cardmarket?.updated || p?.tcgplayer?.updated;
+    const d = upd ? ago(Date.parse(upd)) : 99;
+    if (d <= 2) add(true, `Card prices are live (updated ${fmtDay(upd)})`, 'Cardmarket + TCGplayer, refreshed every day');
+    else add(false, `Card prices are ${d} days old`, 'The price source has not updated — prices may be off');
+  } catch (e) { add(null, 'Could not reach the card price service'); }
+
+  // 4. box prices (from the daily robot)
+  if (boxLive?.updated) {
+    const d = ago(Date.parse(boxLive.updated));
+    if (d <= 3) add(true, `Sealed box prices updated ${fmtDay(boxLive.updated)}`);
+    else add(false, `Sealed box prices are ${d} days old`, 'The daily robot has not run — showing older prices');
+  }
+
+  // 5. currency
+  const rates = await getRates();
+  if (rates && ratesUpdated) {
+    const d = ago(ratesUpdated);
+    if (d <= 2) add(true, `Exchange rates updated ${fmtDay(ratesUpdated)} (1 USD = ${rates.DKK.toFixed(2).replace('.', ',')} kr)`);
+    else add(false, `Exchange rates are ${d} days old`);
+  } else add(null, 'Could not get exchange rates');
+
+  // 6. daily robot report
+  try {
+    const st = await fetch('data/status.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null);
+    if (st) {
+      const d = ago(Date.parse(st.checkedAt));
+      if (d <= 2) add(true, `Daily robot checked everything ${fmtDay(st.checkedAt)}`,
+        st.problems?.length ? 'It reported: ' + st.problems.join('; ') : 'It found no problems');
+      else add(false, `Daily robot last ran ${d} days ago`);
+      if (st.problems?.length) checks[checks.length - 1].ok = false;
+    }
+  } catch (e) { /* opened as a plain file: no robot report */ }
+
+  botReport = { at: Date.now(), checks };
+  try { localStorage.setItem('pokedex-bot', JSON.stringify(botReport)); } catch (e) { /* ok */ }
+  botRunning = false;
+  setBotDot();
+  if (document.getElementById('botPanel') && document.getElementById('modal').classList.contains('open')) openBot();
+}
+function openBot() {
+  document.querySelector('.detail').classList.remove('wide');
+  const body = document.getElementById('detailBody');
+  const r = botReport;
+  const icon = ok => ok === true ? '✅' : ok === false ? '⚠️' : '❔';
+  body.innerHTML = `
+    <div id="botPanel">
+      <h2>🤖 Dex Bot</h2>
+      <div class="bot-sub">I keep checking that every Pokémon, card and price is up to date.</div>
+      ${botRunning ? '<div class="tcg-status">Checking everything...</div>' : ''}
+      ${r ? `
+        <ul class="bot-list">
+          ${r.checks.map(c => `<li><span class="ic">${icon(c.ok)}</span>
+            <div>${esc(c.text)}${c.sub ? `<div class="bot-sub">${esc(c.sub)}</div>` : ''}</div></li>`).join('')}
+        </ul>
+        <div class="bot-sub">Last check: ${new Date(r.at).toLocaleString()}</div>` : ''}
+      <button class="moves-btn" ${botRunning ? 'disabled' : ''} onclick="runBot(true)">🔄 Check again now</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+setBotDot();
+setTimeout(() => { if (!botReport || Date.now() - botReport.at > BOT_EVERY) runBot(); }, 4000);
+setInterval(() => { if (!botReport || Date.now() - botReport.at > BOT_EVERY) runBot(); }, 15 * 60 * 1000);
+
 /* ---- currency: convert USD/EUR card prices to DKK ---- */
 let ratesPromise = null;
+let ratesUpdated = null; // when the exchange rates were last published
 function getRates() {
   if (!ratesPromise) {
     // USD base gives every currency in one request
     ratesPromise = fetch('https://open.er-api.com/v6/latest/USD')
       .then(r => r.json())
-      .then(j => j.rates)
+      .then(j => { ratesUpdated = j.time_last_update_unix ? j.time_last_update_unix * 1000 : null; return j.rates; })
       .catch(() => { ratesPromise = null; return null; });
   }
   return ratesPromise;
@@ -4913,8 +5431,7 @@ sizeSel.addEventListener('change', () => {
 function inCur(amount, source, rates) {
   if (!rates || !rates[curCode] || !rates[source] || source === curCode) return '';
   const v = amount * rates[curCode] / rates[source];
-  const dec = curCode === 'JPY' ? 0 : 2;
-  return ` <span style="color:#c0392b">≈ ${v.toFixed(dec).replace('.', ',')} ${CURRENCIES[curCode]}</span>`;
+  return ` <span style="color:#c0392b">≈ ${curFmt(v)}</span>`;
 }
 
 /* real physical stores in Denmark that sell Pokémon cards */
@@ -4987,21 +5504,37 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, 
   document.querySelector('.detail').classList.add('wide');
   const body = document.getElementById('detailBody');
   const langNote = lang === 'en' ? '' : ` ${LANGS.find(l => l.code === lang).label.slice(5)}`;
-  const rates = await getRates();
+  if (!c.pricesLive || Date.now() - c.pricesLive > PRICE_TTL) {
+    body.innerHTML = '<div class="tcg-status">Getting today\'s prices...</div>';
+  }
+  // today's prices; give up after 8 s and show what we have
+  const [rates, live] = await Promise.all([
+    getRates(),
+    Promise.race([refreshPrices(c, lang), new Promise(r => setTimeout(() => r(false), 8000))])
+  ]);
+  if (lastBuy?.cardObj !== cardObj || lastBuy?.index !== index || lastBuy?.pokeId !== pokeId) return; // user moved on
+  const OLD = 30 * 864e5;
+  const oldTag = d => d && Date.now() - dayMs(d) > OLD
+    ? ` <span class="old-price" title="this shop's price data is old">old price · ${fmtDay(d)}</span>` : '';
 
-  // price rows: TCGplayer variants in USD, Cardmarket trend in EUR, both also in DKK
+  // price rows: TCGplayer variants in USD, Cardmarket trend in EUR, both also in chosen currency
   let priceRows = '';
   if (c.tcgplayer?.prices) {
     for (const [variant, pr] of Object.entries(c.tcgplayer.prices)) {
       if (pr.market != null) {
-        priceRows += `<tr><td class="variant">${variant.replace(/([A-Z])/g, ' $1')} (TCGplayer)</td><td>$${pr.market.toFixed(2)}${inCur(pr.market, 'USD', rates)}</td></tr>`;
+        priceRows += `<tr><td class="variant">${variant.replace(/([A-Z])/g, ' $1')} (TCGplayer)${oldTag(c.tcgplayer.updatedAt)}</td><td>$${pr.market.toFixed(2)}${inCur(pr.market, 'USD', rates)}</td></tr>`;
       }
     }
   }
   if (c.cardmarket?.prices?.trendPrice != null) {
     const tp = c.cardmarket.prices.trendPrice;
-    priceRows += `<tr><td class="variant">Trend price (Cardmarket)</td><td>€${tp.toFixed(2)}${inCur(tp, 'EUR', rates)}</td></tr>`;
+    priceRows += `<tr><td class="variant">Trend price (Cardmarket)${oldTag(c.cardmarket.updatedAt)}</td><td>€${tp.toFixed(2)}${inCur(tp, 'EUR', rates)}</td></tr>`;
   }
+  const dates = [c.tcgplayer?.updatedAt && `TCGplayer ${fmtDay(c.tcgplayer.updatedAt)}`,
+                 c.cardmarket?.updatedAt && `Cardmarket ${fmtDay(c.cardmarket.updatedAt)}`].filter(Boolean).join(' · ');
+  const priceNote = priceRows
+    ? `<div class="price-note">${live ? '✓ Live prices' : '⚠ Could not get today\'s prices — showing the last known ones'}${dates ? ' · updated ' + dates : ''}</div>`
+    : '';
 
   // jumbo = oversized collector version; exact-card links only cover normal size
   const jumbo = buyJumbo ? ' jumbo oversized' : '';
@@ -5058,7 +5591,7 @@ async function openBuyCard(pokeName, index, pokeId, lang = 'en', favIdx = null, 
           </div>`;
         }).join('')}
         ${priceChartHtml(c, rates)}
-        ${c.tcgplayer?.updatedAt ? `<div class="price-note">Prices updated ${c.tcgplayer.updatedAt}</div>` : ''}
+        ${priceNote}
       </div>
     </div>
   `;
