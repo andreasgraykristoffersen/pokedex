@@ -1,14 +1,14 @@
 {
- "checkedAt": "2026-11-08T13:27:16.776Z",
+ "checkedAt": "2026-11-09T01:50:49.021Z",
  "boxPrices": {
-  "updated": "2026-11-07T20:05:27+0000",
+  "updated": "2026-11-08T20:05:45+0000",
   "found": 12,
   "of": 12
  },
  "coverage": {
   "mainNewest": {
-   "name": "30th Celebration: Classic Collection",
-   "date": "2026/09/16"
+   "name": "Delta Reign",
+   "date": "2026/11/06"
   },
   "newest": {
    "id": "me06",
@@ -185,12 +185,6 @@
     "name": "MEP Black Star Promos",
     "cards": 112,
     "official": 0
-   },
-   {
-    "id": "me06",
-    "name": "Delta Reign",
-    "cards": 141,
-    "official": 103
    }
   ],
   "shortSets": [
@@ -244,7 +238,7 @@
    }
   ]
  },
- "cardPricesUpdated": "2026-11-07T23:49:17.885Z",
+ "cardPricesUpdated": "2026-11-08T23:49:36.808Z",
  "pokemonCount": 1025,
  "problems": []
 }
