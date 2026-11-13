@@ -1,7 +1,7 @@
 {
- "checkedAt": "2026-11-12T03:16:12.230Z",
+ "checkedAt": "2026-11-13T02:49:26.664Z",
  "boxPrices": {
-  "updated": "2026-11-11T20:05:27+0000",
+  "updated": "2026-11-12T20:06:19+0000",
   "found": 12,
   "of": 12
  },
@@ -15,7 +15,7 @@
    "name": "Delta Reign",
    "releaseDate": "2026-11-06",
    "cards": 141,
-   "withImages": 0
+   "withImages": 141
   },
   "extraSets": [
    {
@@ -238,7 +238,7 @@
    }
   ]
  },
- "cardPricesUpdated": "2026-11-11T23:49:36.426Z",
+ "cardPricesUpdated": "2026-11-12T22:14:48.534Z",
  "pokemonCount": 1025,
  "problems": []
 }
