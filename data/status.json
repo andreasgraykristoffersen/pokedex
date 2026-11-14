@@ -1,7 +1,7 @@
 {
- "checkedAt": "2026-11-13T02:49:26.664Z",
+ "checkedAt": "2026-11-14T02:37:18.383Z",
  "boxPrices": {
-  "updated": "2026-11-12T20:06:19+0000",
+  "updated": "2026-11-13T20:05:52+0000",
   "found": 12,
   "of": 12
  },
@@ -238,7 +238,7 @@
    }
   ]
  },
- "cardPricesUpdated": "2026-11-12T22:14:48.534Z",
+ "cardPricesUpdated": "2026-11-13T22:16:19.373Z",
  "pokemonCount": 1025,
  "problems": []
 }
